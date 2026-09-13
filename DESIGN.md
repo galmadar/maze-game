@@ -88,8 +88,18 @@ A brother of `cranes-game`: TypeScript + Vite, same rule.
 
 `npm test` checks that `sim/` and `content/` never touch the DOM or the renderer.
 
+## Score
+
+**Fastest time.** A level's time adds up every round you played: each full clock
+you used up, plus how far into the last round an arrow reached the exit. Using
+fewer rounds gives a better time on its own. Best time per level and hardness is
+saved in the browser.
+
+## Platform
+
+Desktop only, with a mouse. No phone or touch support. On a touch device the game
+says so and doesn't start.
+
 ## Open questions for Gal
 
-- Phones: skip them? Pointer lock is a mouse thing.
 - Sound in the first version?
-- Score: fewest rounds used, fastest time, or both?
