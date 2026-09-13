@@ -14,7 +14,7 @@ in plain words.
 
 # The game
 
-See `DESIGN.md`. The pointer is the player; a page can't move the pointer, so
-walls hurt instead of block.
+See `DESIGN.md`. Each round replays every earlier round as a past self.
+Pointer lock: the game draws and owns the arrow, so walls block.
 
 `src/sim/` and `src/content/` must never import the DOM or the renderer.

@@ -1,79 +1,95 @@
 # Maze Run — design
 
-The mouse pointer *is* the player. No avatar, no custom cursor: the little arrow
-you already have is the thing being chased.
+You play with a team of yourselves. Every round you play is recorded, and in the
+next round all your earlier selves play again beside you, doing exactly what you
+did. You can't beat a level alone; you beat it as the crowd.
 
-## The one hard fact everything bends around
+Closest known game: *Cursor\*10* (Nekogames, 2008).
 
-A web page cannot move or stop your real pointer. So walls can't block you — they
-**hurt** you. Touching a wall, or leaving the game window, is a hit.
+## The pointer
 
-To stop cheating by flicking the mouse across a wall, we check the whole line
-between two mouse positions, not just where it landed.
+Browsers never let a page move the real mouse pointer. What they do allow is
+**pointer lock**: after one click, the page hides the real pointer and gets the
+raw mouse movement. The game draws its own arrow, looking just like the real one,
+and moves it.
 
-## A run
+Because the game owns that arrow, **walls really block**, like in any maze.
+Esc always gives the real pointer back (the browser makes sure of it), and that
+pauses the game.
 
-1. Pick hardness: **Easy / Medium / Hard**.
-2. Park the pointer on the glowing **start pad**. The round only begins once you're
-   on it (we can't put the pointer there for you).
-3. Play rounds until you run out of hearts (3).
-4. Score = how deep into the maze you got.
+Past selves are drawn with the same arrow, faded, with a round number next to it.
 
-## A round (~10 seconds)
+## Levels and rounds
 
-Each round the screen says one short order — *CLICK*, *HOLD*, *GO*, *FREEZE* — and a
-timer bar drains. Do it before the bar empties and a new piece of maze opens up.
-Fail and you lose a heart and replay that round.
+- The game is a list of **levels**. Each level is one maze room with an exit.
+- Each level has a **clock** of about 20 seconds.
+- A **round** is one run of that clock. When it runs out, time goes back to 0 and
+  the next round starts. Everything in the room resets.
+- All earlier rounds play back at the same time as you, from second 0.
+- The level is won the moment **any** arrow — you or a past self — reaches the exit.
+- Each level has a **round limit**. Run out of rounds and the level starts over
+  from round 1 with no past selves.
 
-Meanwhile **the Dark** creeps in from the edges and follows the pointer. It never
-stops, so dawdling is dangerous even when the order is easy.
+Timing is the puzzle. Round 1 held the door from second 3 to second 12, so round 2
+has to get through it inside those nine seconds.
 
-| Order | What you do |
+## Things in the room
+
+| Thing | How it works |
 |---|---|
-| **GO** | Get to the exit door without touching walls. |
-| **CLICK** | Click the 3 keys scattered in the corridor, in any order. |
-| **HOLD** | Hold the mouse button down on a door until it opens (~2s). Let go and it closes. |
-| **FREEZE** | Don't move at all. A searchlight sweeps past — any wiggle and it sees you. |
-| **FOLLOW** | Stay inside a firefly's glow while it flies through the maze. |
-| **DOUBLE** | Double-click switches to flip bridges over gaps. |
-| **SQUEEZE** | Corridor narrows to a few pixels. Slow hands. |
+| **Hold button** | A door is open only while some arrow holds the mouse button down on it. |
+| **Click switch** | One click flips a door or bridge. Clicking again flips it back. |
+| **Pressure plate** | Open while some arrow rests on it. No click needed. |
+| **Weight plate** | Needs 2 or 3 arrows on it together. |
+| **Timer door** | A click opens it for a few seconds. |
+| **Crusher** | Closes on any arrow under it. That arrow is out for the rest of the round. |
+| **Key** | Click to pick it up, then carry it to a lock. |
 
-New orders unlock as you go deeper; early rounds are only GO and CLICK.
+Past selves always do exactly what they did, even when it no longer makes sense. If a
+crusher gets one, it stops there. Getting in each other's way is part of the game.
+
+## First levels (to teach one thing at a time)
+
+1. **Hello** — a clear path to the exit. Just move.
+2. **Hold the door** — a hold button, and a door behind it. Needs 2 rounds.
+3. **Relay** — three doors in a row, each button behind the last door. 3 rounds.
+4. **Heavy** — a 2-arrow weight plate plus a hold button. 3 rounds.
+5. **Crusher hall** — one self stands on a plate that stops the crusher while the others run.
+
+After that levels mix things up, and the round limit gets tighter.
 
 ## Hardness
 
 | | Easy | Medium | Hard |
 |---|---|---|---|
-| Round time | 14s | 10s | 7s |
+| Level clock | 30s | 20s | 14s |
+| Spare rounds over the minimum | +3 | +1 | 0 |
 | Corridor width | wide | normal | narrow |
-| Dark speed | slow | normal | fast |
-| Wall touch | lose a heart, keep going | lose a heart, replay round | lose a heart, replay round |
 
-All numbers live in one config file so they're easy to tune.
+Every number lives in one config file.
 
-## Getting deeper
+## Recording and replay
 
-The maze is one big map that grows. Each won round opens the next chunk and the
-view slides over to it. Every 5 rounds is a new **zone** with its own look and one
-new order — so "levels" are zones, and progress is visible as the map you've opened.
+A past self is a list of what the arrow did at each game tick: where it was, and
+whether the button was down. Playback puts it exactly there — it does not replay
+raw mouse movement, so it can't drift.
 
-Mazes are generated from a seed, so the same seed gives the same maze (handy for
-"beat my score on this one").
+The game runs on fixed ticks (60 a second), so the same inputs always give the same
+result. That lets the tests play a level from recordings.
 
 ## How it's built
 
-A brother of `cranes-game`: TypeScript + Vite, same shape, same rule.
+A brother of `cranes-game`: TypeScript + Vite, same rule.
 
-- `src/sim/` — the game rules: maze, rounds, orders, the Dark, scoring. Plain logic,
-  no drawing, no browser. Fully tested.
-- `src/content/` — the order list, zones, hardness table.
-- `src/render/` — draws it on a 2D canvas. No three.js; this game is flat.
-- `src/input/` — turns mouse events into `move / down / up / leave` for the sim.
+- `src/sim/` — rules: rooms, things, clock, rounds, recording and replay. No drawing, no browser. Tested.
+- `src/content/` — the level list and hardness table.
+- `src/render/` — draws on a 2D canvas. No three.js; the game is flat.
+- `src/input/` — pointer lock, turning mouse events into moves and button presses for the sim.
 
-`npm test` enforces that `sim/` and `content/` never touch the drawing or the DOM.
+`npm test` checks that `sim/` and `content/` never touch the DOM or the renderer.
 
 ## Open questions for Gal
 
-- Touch screens: skip them (no hover on a phone), or make finger = pointer?
-- Sound: yes/no for the first version?
-- The Dark as the chaser — or something with a face (a ghost, a cat)?
+- Phones: skip them? Pointer lock is a mouse thing.
+- Sound in the first version?
+- Score: fewest rounds used, fastest time, or both?
