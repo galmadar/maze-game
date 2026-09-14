@@ -2,6 +2,7 @@
 // The canvas is the whole window; the room is scaled up to fill it, leaving a
 // margin of bare paper for the writing in the HUD.
 import type { RoomDef } from '../content/types';
+import type { RoomState } from '../sim/Simulation';
 import type { Frame } from '../sim/types';
 import {
   makeHatch,
@@ -43,6 +44,7 @@ export class Renderer {
   private wallHatch: CanvasPattern | null = null;
   private exitHatch: CanvasPattern | null = null;
   private redHatch: CanvasPattern | null = null;
+  private plateHatch: CanvasPattern | null = null;
   /** Writing is laid down after the room transform is undone, so it stays screen-sized. */
   private pendingLabels: { text: string; x: number; y: number; color: string; size: number }[] = [];
 
@@ -56,6 +58,7 @@ export class Renderer {
     this.wallHatch = makeHatch(ctx, 'rgba(47, 59, 74, 0.22)', 9, 1.6);
     this.exitHatch = makeHatch(ctx, PAPER.greenPencil, 7, 2.4);
     this.redHatch = makeHatch(ctx, PAPER.red, 8, 2);
+    this.plateHatch = makeHatch(ctx, PAPER.greenPencil, 9, 2.2);
     window.addEventListener('resize', this.handleResize);
     this.measure();
   }
@@ -113,7 +116,7 @@ export class Renderer {
     return this.originY + y * this.scale;
   }
 
-  draw(room: RoomDef, openDoors: Set<string>, arrows: DrawArrow[]): void {
+  draw(room: RoomDef, state: RoomState, arrows: DrawArrow[]): void {
     this.measure();
     this.layout(room);
     const ctx = this.ctx;
@@ -132,8 +135,9 @@ export class Renderer {
     this.pendingLabels = [];
     this.drawWalls(room, px, amp, step);
     this.drawExit(room, px, amp, step);
-    this.drawButtons(room, openDoors, px, amp);
-    this.drawDoors(room, openDoors, px, amp, step);
+    this.drawPlates(room, state, px, amp, step);
+    this.drawButtons(room, state, px, amp);
+    this.drawDoors(room, state, px, amp, step);
 
     ctx.restore();
 
@@ -199,10 +203,69 @@ export class Renderer {
     });
   }
 
-  private drawButtons(room: RoomDef, openDoors: Set<string>, px: number, amp: number): void {
+  // A weight plate: a square on the floor with a lip inside it. Waiting, it is
+  // pencil and dashed; carrying its crowd, it is inked green like the way out.
+  private drawPlates(room: RoomDef, state: RoomState, px: number, amp: number, step: number): void {
+    const ctx = this.ctx;
+    for (const p of room.plates) {
+      const on = state.satisfiedPlates.has(p.id);
+      const { x, y, w, h } = p.zone;
+      const cy = y + h / 2;
+      const seed = seedOf(x, y, w, h, 5);
+      const colour = on ? PAPER.greenInk : PAPER.pencil;
+
+      if (on && this.plateHatch) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        wobblyRectPath(ctx, x, y, w, h, seed, amp, step);
+        ctx.clip();
+        ctx.scale(px, px);
+        ctx.fillStyle = this.plateHatch;
+        ctx.fillRect((x - 4) / px, (y - 4) / px, (w + 8) / px, (h + 8) / px);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = (on ? 5.5 : 3.6) * px;
+      wobblyRectPath(ctx, x, y, w, h, seed, amp, step);
+      ctx.stroke();
+
+      // The lip of the plate, drawn a second time inside — further in once it
+      // is pressed down, so a full plate reads as sunk into the floor.
+      const inset = w * (on ? 0.2 : 0.13);
+      ctx.save();
+      if (!on) ctx.setLineDash([6 * px, 7 * px]);
+      ctx.lineWidth = 2.4 * px;
+      wobblyRectPath(ctx, x + inset, y + inset, w - inset * 2, h - inset * 2, seed + 31, amp, step);
+      ctx.stroke();
+      ctx.restore();
+
+      // In the top corner, because arrows hang down and to the right of where
+      // they stand — so a full plate never hides the number it asked for.
+      const glyph = h * 0.3;
+      const markY = cy - h * 0.2;
+      ctx.save();
+      ctx.globalAlpha = on ? 0.9 : 0.65;
+      traceArrow(ctx, x + w * 0.14, markY - glyph / 2, glyph);
+      ctx.fillStyle = colour;
+      ctx.fill();
+      ctx.restore();
+
+      const size = Math.min(26, h * this.scale * 0.42);
+      this.pendingLabels.push({
+        text: String(p.needs),
+        x: this.toScreenX(x + w * 0.62),
+        y: this.toScreenY(markY) + size * 0.36,
+        color: colour,
+        size,
+      });
+    }
+  }
+
+  private drawButtons(room: RoomDef, state: RoomState, px: number, amp: number): void {
     const ctx = this.ctx;
     for (const b of room.buttons) {
-      const held = room.doors.some((d) => openDoors.has(d.id) && d.buttonIds.includes(b.id));
+      const held = state.heldButtons.has(b.id);
       const cx = b.zone.x + b.zone.w / 2;
       const cy = b.zone.y + b.zone.h / 2;
       const r = Math.min(b.zone.w, b.zone.h) / 2;
@@ -235,14 +298,19 @@ export class Renderer {
     }
   }
 
-  private drawDoors(room: RoomDef, openDoors: Set<string>, px: number, amp: number, step: number): void {
+  private drawDoors(room: RoomDef, state: RoomState, px: number, amp: number, step: number): void {
     const ctx = this.ctx;
     for (const d of room.doors) {
-      const open = openDoors.has(d.id);
-      const mx = d.rect.x + d.rect.w / 2;
-      const top = d.rect.y;
-      const bottom = d.rect.y + d.rect.h;
+      const open = state.openDoors.has(d.id);
       const seed = seedOf(d.rect.x, d.rect.y, d.rect.w, d.rect.h);
+      // The leaf lies across the way through: upright in a left-right passage,
+      // flat in an up-down one.
+      const acrossX = (d.blocks ?? 'x') === 'x';
+      const mx = d.rect.x + d.rect.w / 2;
+      const my = d.rect.y + d.rect.h / 2;
+      const a = acrossX ? { x: mx, y: d.rect.y } : { x: d.rect.x, y: my };
+      const b = acrossX ? { x: mx, y: d.rect.y + d.rect.h } : { x: d.rect.x + d.rect.w, y: my };
+      const span = acrossX ? d.rect.h : d.rect.w;
 
       if (open) {
         // Swung out of the way: a dashed ghost where it was, and the leaf ajar.
@@ -251,17 +319,19 @@ export class Renderer {
         ctx.setLineDash([5 * px, 9 * px]);
         ctx.strokeStyle = PAPER.red;
         ctx.lineWidth = 3 * px;
-        wobblyLine(ctx, mx, top, mx, bottom, seed, amp, step);
+        wobblyLine(ctx, a.x, a.y, b.x, b.y, seed, amp, step);
         ctx.restore();
 
         ctx.strokeStyle = PAPER.red;
         ctx.lineWidth = 5 * px;
-        const leaf = d.rect.h * 0.42;
-        wobblyLine(ctx, mx, top, mx + leaf * 0.8, top + leaf * 0.6, seed + 11, amp, step);
+        const leaf = span * 0.42;
+        const tipX = acrossX ? a.x + leaf * 0.8 : a.x + leaf * 0.6;
+        const tipY = acrossX ? a.y + leaf * 0.6 : a.y + leaf * 0.8;
+        wobblyLine(ctx, a.x, a.y, tipX, tipY, seed + 11, amp, step);
       } else {
         ctx.strokeStyle = PAPER.wood;
         ctx.lineWidth = 7 * px;
-        wobblyLine(ctx, mx, top, mx, bottom, seed, amp, step);
+        wobblyLine(ctx, a.x, a.y, b.x, b.y, seed, amp, step);
       }
     }
   }
