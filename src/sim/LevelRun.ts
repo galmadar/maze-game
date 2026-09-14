@@ -13,7 +13,8 @@ export interface TickReport {
 /** Runs one level attempt: rounds, past-self replays, the clock, and the round limit. */
 export class LevelRun {
   readonly room: RoomDef;
-  readonly clockTicks: number;
+  /** Each round is this many ticks longer than the one before — round 1 is one step. */
+  readonly clockStepTicks: number;
   readonly roundLimit: number;
 
   replays: Frame[][] = [];
@@ -24,11 +25,16 @@ export class LevelRun {
   finished = false;
   won = false;
 
-  constructor(room: RoomDef, clockTicks: number, roundLimit: number) {
+  constructor(room: RoomDef, clockStepTicks: number, roundLimit: number) {
     this.room = room;
-    this.clockTicks = clockTicks;
+    this.clockStepTicks = clockStepTicks;
     this.roundLimit = roundLimit;
     this.liveFrame = { x: room.spawn.x, y: room.spawn.y, down: false };
+  }
+
+  /** The CURRENT round's clock. Read as a plain property by the HUD every frame. */
+  get clockTicks(): number {
+    return this.round * this.clockStepTicks;
   }
 
   private resetForNewRound(): void {
@@ -78,6 +84,8 @@ export class LevelRun {
 
   /** Full clocks of every finished round, plus progress into the current one. */
   elapsedSeconds(ticksPerSecond = 60): number {
-    return (this.replays.length * this.clockTicks + this.tickIndex) / ticksPerSecond;
+    // Summed from the recordings, because every round's clock is a different length.
+    const finished = this.replays.reduce((total, r) => total + r.length, 0);
+    return (finished + this.tickIndex) / ticksPerSecond;
   }
 }

@@ -54,6 +54,45 @@ describe('Hold the door — level solvable with scripted rounds', () => {
   });
 });
 
+// The clock now grows with the round, so round 1 is the shortest it will ever be.
+// These prove the real levels are still winnable on every hardness, and that the
+// past selves go on holding their doors once their short recordings run out.
+describe('every hardness — levels still winnable under the growing clock', () => {
+  for (const hardness of Object.values(HARDNESS)) {
+    it(`${hardness.id}: Hold the door is won in round 2`, () => {
+      const def = level('hold-the-door');
+      const run = new LevelRun(
+        def.build(hardness.corridorWidth),
+        clockTicksFor(hardness),
+        roundLimitFor(def.minRounds, hardness),
+      );
+
+      moveRight(run, 250, false);
+      holdUntilRoundEnds(run, true);
+      expect(run.round).toBe(2);
+
+      moveRight(run, 820, false);
+      expect(run.won).toBe(true);
+    });
+
+    it(`${hardness.id}: Relay is won in round 4, inside the round limit`, () => {
+      const def = level('relay');
+      const roundLimit = roundLimitFor(def.minRounds, hardness);
+      const run = new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), roundLimit);
+
+      for (const distance of [130, 330, 530]) {
+        moveRight(run, distance, false);
+        holdUntilRoundEnds(run, true);
+      }
+      expect(run.round).toBe(4);
+
+      moveRight(run, 820, false);
+      expect(run.won).toBe(true);
+      expect(run.round).toBeLessThanOrEqual(roundLimit);
+    });
+  }
+});
+
 describe('Relay — level solvable with scripted rounds', () => {
   const hardness = HARDNESS.medium;
   const def = level('relay');

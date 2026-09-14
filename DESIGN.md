@@ -22,7 +22,8 @@ Past selves are drawn with the same arrow, faded, with a round number next to it
 ## Levels and rounds
 
 - The game is a list of **levels**. Each level is one maze room with an exit.
-- Each level has a **clock** of about 20 seconds.
+- Each round has its own **clock**, and **every round is longer than the last**.
+  Round 1 is 5 seconds, round 2 is 10, round 3 is 15, and so on.
 - A **round** is one run of that clock. When it runs out, time goes back to 0 and
   the next round starts. Everything in the room resets.
 - All earlier rounds play back at the same time as you, from second 0.
@@ -30,8 +31,9 @@ Past selves are drawn with the same arrow, faded, with a round number next to it
 - Each level has a **round limit**. Run out of rounds and the level starts over
   from round 1 with no past selves.
 
-Timing is the puzzle. Round 1 held the door from second 3 to second 12, so round 2
-has to get through it inside those nine seconds.
+Timing is the puzzle. Your first round is short, so early selves can only do one
+small job — walk somewhere and hold. Later rounds are long enough to use what they
+set up, and long enough to go wrong.
 
 ## Things in the room
 
@@ -48,6 +50,11 @@ has to get through it inside those nine seconds.
 Past selves always do exactly what they did, even when it no longer makes sense. If a
 crusher gets one, it stops there. Getting in each other's way is part of the game.
 
+Because rounds get longer, an early self **runs out of things to do** before the round
+ends. When that happens it **stops where it finished and stands there**, still doing
+whatever it was doing — if it was holding a button down, it goes on holding it. A short
+first round makes a good doorstop.
+
 ## First levels (to teach one thing at a time)
 
 1. **Hello** — a clear path to the exit. Just move.
@@ -62,9 +69,13 @@ After that levels mix things up, and the round limit gets tighter.
 
 | | Easy | Medium | Hard |
 |---|---|---|---|
-| Level clock | 30s | 20s | 14s |
+| Each round longer than the last by | 8s | 5s | 3s |
+| So rounds 1, 2, 3 run | 8s, 16s, 24s | 5s, 10s, 15s | 3s, 6s, 9s |
 | Spare rounds over the minimum | +3 | +1 | 0 |
 | Corridor width | wide | normal | narrow |
+
+Hardness sets how fast the clock grows: on Easy every round gives you a lot more time
+than the one before, on Hard only a little. Medium is the plain 5-second step.
 
 Every number lives in one config file.
 
@@ -90,10 +101,11 @@ A brother of `cranes-game`: TypeScript + Vite, same rule.
 
 ## Score
 
-**Fastest time.** A level's time adds up every round you played: each full clock
-you used up, plus how far into the last round an arrow reached the exit. Using
-fewer rounds gives a better time on its own. Best time per level and hardness is
-saved in the browser.
+**Fastest time.** A level's time adds up every round you played: each full clock you
+used up — and they get longer — plus how far into the last round an arrow reached the
+exit. Using fewer rounds gives a better time on its own, and it counts for more now
+that a late round costs so much. Best time per level and hardness is saved in the
+browser.
 
 ## Platform
 

@@ -11,11 +11,29 @@ const app = document.getElementById('app')!;
 let hardness: Hardness = 'medium';
 
 function render(html: string): void {
-  app.innerHTML = html;
+  app.innerHTML = paperDefs() + html;
+}
+
+/** One turbulence filter for every wobbly SVG on the page. */
+function paperDefs(): string {
+  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <filter id="soft" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="9" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs></svg>`;
+}
+
+function arrowGlyph(color: string, opacity = 1): string {
+  return `<svg width="17" height="24" viewBox="0 0 28 43" opacity="${opacity}" aria-hidden="true"><path d="M0 0 L0 38 L9 29 L15 43 L23 39 L17 26 L28 26 Z" fill="${color}"/></svg>`;
+}
+
+function soundIcon(color: string): string {
+  return `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l4-3v12l-4-3H4z"/><path d="M15 8.5c1 1.5 1 4 0 5.5"/></svg>`;
 }
 
 function muteButtonHtml(id: string): string {
-  return `<button id="${id}">${audio.isMuted() ? '🔇 muted (M)' : '🔊 sound (M)'}</button>`;
+  return `<button id="${id}" class="plain">${soundIcon('currentColor')} ${audio.isMuted() ? 'sound off — press M' : 'sound on — press M'}</button>`;
 }
 
 function wireMuteButton(id: string, onToggle?: () => void): void {
@@ -31,25 +49,78 @@ document.addEventListener('keydown', (e) => {
 
 function showTouchBlocked(): void {
   render(`
-    <div class="screen">
-      <h1>Maze Run</h1>
-      <p>This game needs a mouse. Try it on a desktop.</p>
+    <div class="sheet">
+      <div class="start-body">
+        <h1>Maze Run</h1>
+        <p class="lead">This game needs a mouse. Try it on a desktop.</p>
+      </div>
     </div>
   `);
 }
 
+/** The whole idea of the game, sketched once in the corner of the sheet. */
+function startSketch(): string {
+  return `
+    <div class="corner-sketch">
+      <svg viewBox="0 0 400 470" aria-hidden="true">
+        <g filter="url(#soft)" stroke="#2f3b4a" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9">
+          <path d="M40 40 H360 M40 40 V430 M360 40 V430 M40 430 H360"/>
+          <path d="M120 40 V190 M120 280 V430 M200 130 H300 M200 130 V330 M280 330 H360"/>
+        </g>
+        <g opacity="0.35">
+          <g filter="url(#soft)" transform="translate(74 300)">
+            <path d="M0 0 L0 26 L6 20 L10 30 L16 27 L11 17 L19 17 Z" fill="#5a6675" stroke="#3f4a58" stroke-width="2" stroke-linejoin="round"/>
+          </g>
+          <text x="98" y="298" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#5a6675">1</text>
+        </g>
+        <g opacity="0.55">
+          <g filter="url(#soft)" transform="translate(162 210)">
+            <path d="M0 0 L0 26 L6 20 L10 30 L16 27 L11 17 L19 17 Z" fill="#5a6675" stroke="#3f4a58" stroke-width="2" stroke-linejoin="round"/>
+          </g>
+          <text x="186" y="208" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#5a6675">2</text>
+        </g>
+        <g filter="url(#soft)" transform="translate(248 250)">
+          <path d="M0 0 L0 32 L8 25 L13 37 L20 34 L14 22 L24 22 Z" fill="#2f3b4a" stroke="#1d2733" stroke-width="2.4" stroke-linejoin="round"/>
+        </g>
+        <text x="278" y="250" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#2f3b4a">3</text>
+        <g filter="url(#soft)"><rect x="300" y="360" width="50" height="50" rx="5" fill="none" stroke="#4d7548" stroke-width="4"/></g>
+        <text x="325" y="435" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#4d7548">out</text>
+      </svg>
+      <div class="corner-cap quiet">three of you, one way out</div>
+    </div>
+  `;
+}
+
 function showTitle(): void {
   render(`
-    <div class="screen">
-      <h1>Maze Run</h1>
-      <p class="dim">You play with a team of yourselves. Every round replays beside you.</p>
-      <div class="row">
-        ${(['easy', 'medium', 'hard'] as Hardness[])
-          .map((h) => `<button class="pick ${h === hardness ? 'is-selected' : ''}" data-hardness="${h}">${HARDNESS[h].label}</button>`)
-          .join('')}
+    <div class="sheet">
+      <div class="start-body">
+        <h1>Maze Run</h1>
+        <p class="lead" style="margin-top: 26px;">
+          You play with a team of yourselves. Every round you play is recorded, and the next
+          round they all run it again beside you.
+        </p>
+        <p class="note" style="margin-top: 14px;">You can’t beat a level alone. You beat it as the crowd.</p>
+        <div class="start-row">
+          <div class="picker">
+            <div class="note">how hard?</div>
+            <div class="row">
+              ${(['easy', 'medium', 'hard'] as Hardness[])
+                .map(
+                  (h) =>
+                    `<button class="pick ${h === hardness ? 'is-selected' : ''}" data-hardness="${h}">${HARDNESS[h].label.toLowerCase()}</button>`,
+                )
+                .join('')}
+            </div>
+          </div>
+          <button class="primary" id="start-btn">Play →</button>
+        </div>
       </div>
-      <button class="primary" id="start-btn">Play</button>
-      ${muteButtonHtml('mute-btn')}
+      ${startSketch()}
+      <div class="sheet-foot">
+        <span class="quiet">mouse only — no phone</span>
+        ${muteButtonHtml('mute-btn')}
+      </div>
     </div>
   `);
   for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-hardness]')) {
@@ -62,22 +133,79 @@ function showTitle(): void {
   wireMuteButton('mute-btn', showTitle);
 }
 
+const CARD_MAZES = [
+  'M110 40 V130 M180 90 H250 M180 90 V196',
+  'M130 40 V120 M130 196 V160 M210 40 V130 M210 130 H304',
+  'M110 40 V150 M190 90 V196 M250 40 V130',
+];
+
+type CardState = 'done' | 'next' | 'ready' | 'locked';
+
+function levelCardArt(index: number, state: CardState): string {
+  const inner = CARD_MAZES[index % CARD_MAZES.length];
+  const paper = state === 'next' ? '#f0e2c0' : state === 'locked' ? '#e9ddc3' : '#efe3c9';
+  const edge = state === 'next' ? '#c25b4a' : state === 'locked' ? '#8a7d63' : '#2f3b4a';
+  const dash = state === 'locked' ? ' stroke-dasharray="13 9"' : '';
+  const wallInk = state === 'locked' ? '#8a7d63' : '#2f3b4a';
+  const mark =
+    state === 'done'
+      ? '<path d="M58 118 L86 150 L146 74" fill="none" stroke="#4d7548" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)" opacity="0.9"/>'
+      : state === 'locked'
+        ? `<g filter="url(#soft)" transform="translate(154 96)">
+             <rect x="0" y="14" width="36" height="28" rx="5" fill="none" stroke="#6b6250" stroke-width="3.4"/>
+             <path d="M7 14 V9 a11 11 0 0 1 22 0 v5" fill="none" stroke="#6b6250" stroke-width="3.4" stroke-linecap="round"/>
+           </g>`
+        : state === 'next'
+          ? '<g filter="url(#soft)"><circle cx="82" cy="150" r="17" fill="none" stroke="#c25b4a" stroke-width="3.4"/></g>'
+          : '';
+  return `
+    <svg viewBox="0 0 344 236" aria-hidden="true">
+      <rect x="5" y="5" width="334" height="226" rx="10" fill="${paper}" stroke="${edge}" stroke-width="4"${dash} filter="url(#soft)"/>
+      <g filter="url(#soft)" stroke="${wallInk}" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6">
+        <path d="M40 40 H304 M40 40 V196 M304 40 V196 M40 196 H304"/>
+        <path d="${inner}"/>
+      </g>
+      <g filter="url(#soft)"><rect x="258" y="150" width="34" height="34" rx="4" fill="none" stroke="#4d7548" stroke-width="3.4"/></g>
+      ${mark}
+    </svg>
+  `;
+}
+
 function showLevelSelect(): void {
   const unlocked = getUnlockedCount();
+  // "you're here" belongs on one card only: the first one open but not yet beaten.
+  const nextIndex = LEVELS.findIndex((lvl, i) => i < unlocked && getBestTime(lvl.id, hardness) === null);
   render(`
-    <div class="screen">
-      <h1>Choose a level — ${HARDNESS[hardness].label}</h1>
-      <div class="row">
+    <div class="sheet">
+      <div class="head-row">
+        <div>
+          <h2>Pick a level</h2>
+          <p class="note" style="margin-top: 8px;">${HARDNESS[hardness].label.toLowerCase()}</p>
+        </div>
+        <button id="back-btn" class="plain">← back</button>
+      </div>
+      <div class="levels">
         ${LEVELS.map((lvl, i) => {
           const best = getBestTime(lvl.id, hardness);
           const locked = i >= unlocked;
-          return `<button class="pick" data-level="${lvl.id}" ${locked ? 'disabled' : ''}>
-            ${i + 1}. ${lvl.name}${locked ? ' 🔒' : ''}
-            ${best !== null ? `<br><span class="dim">best ${best.toFixed(2)}s</span>` : ''}
+          const state: CardState = locked ? 'locked' : best !== null ? 'done' : i === nextIndex ? 'next' : 'ready';
+          const foot = locked
+            ? `<div class="level-locked">finish ${i} first</div>`
+            : best !== null
+              ? `<div class="level-best">best ${best.toFixed(2)}s</div>`
+              : state === 'next'
+                ? '<div class="level-locked" style="color: var(--red);">you’re here</div>'
+                : '<div class="level-locked">not played yet</div>';
+          return `<button class="level-card" data-level="${lvl.id}" ${locked ? 'disabled' : ''}>
+            ${levelCardArt(i, state)}
+            <div class="level-name">
+              <b>${i + 1}. ${lvl.name}</b>
+              <span class="note">${roundLimitFor(lvl.minRounds, HARDNESS[hardness])} rounds</span>
+            </div>
+            ${foot}
           </button>`;
         }).join('')}
       </div>
-      <button id="back-btn">Back</button>
     </div>
   `);
   for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-level]')) {
@@ -105,44 +233,66 @@ function runLevel(
 ): void {
   render(`
     <div id="game-wrap">
-      <div id="hud-top" class="hud">
-        <span>${levelName} — round <span id="hud-round">1</span>/${roundLimit}</span>
-        <span>Clock <span class="clock-track"><span id="hud-clock-bar" class="clock-bar"></span></span></span>
-        <span id="hud-time">0.00s</span>
-        ${muteButtonHtml('mute-btn')}
+      <canvas id="canvas"></canvas>
+      <div id="hud-top">
+        <div>
+          <div class="hud-title">${levelName}</div>
+          <div class="hud-sub">round <span id="hud-round">1</span> of ${roundLimit}</div>
+        </div>
+        <div class="hud-clock">
+          <div class="hud-clock-head"><span>clock</span><span id="hud-time">0.00s</span></div>
+          <div class="clock-track"><div id="hud-clock-bar" class="clock-bar"></div></div>
+        </div>
+        <div class="hud-right">
+          ${muteButtonHtml('mute-btn')}
+          <span>esc to pause</span>
+        </div>
       </div>
-      <canvas id="canvas" width="${room.width}" height="${room.height}"></canvas>
+      <div class="legend">
+        <span>${arrowGlyph('#2f3b4a')} you</span>
+        <span>${arrowGlyph('#5a6675', 0.45)} the ones before you</span>
+        <span>click the maze to take the mouse</span>
+      </div>
       <div id="pause-overlay" class="hidden">
-        <p>Paused — click to resume</p>
-        <button id="quit-btn">Quit to level select</button>
+        <p class="paused">Paused</p>
+        <p class="note">click to carry on</p>
+        <button id="quit-btn" class="boxed">back to the levels</button>
       </div>
-      <p class="dim">Click the maze to lock your mouse. Esc pauses.</p>
     </div>
   `);
   wireMuteButton('mute-btn');
-  document.getElementById('quit-btn')!.addEventListener('click', () => {
-    input.dispose();
-    showLevelSelect();
-  });
 
   const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-  const ctx = canvas.getContext('2d')!;
-  const renderer = new Renderer(ctx);
+  const renderer = new Renderer(canvas, {
+    top: document.getElementById('hud-top'),
+    bottom: document.querySelector<HTMLElement>('.legend'),
+  });
   const run = new LevelRun(room, clockTicks, roundLimit);
 
   let prevDown = false;
-  let prevDoors = new Set<string>();
   let lastTickSecond = -1;
   let stopped = false;
 
   const input = new PointerInput(canvas, (locked) => {
     document.getElementById('pause-overlay')!.classList.toggle('hidden', locked);
   });
-  canvas.addEventListener('click', () => {
+  document.getElementById('quit-btn')!.addEventListener('click', (e) => {
+    e.stopPropagation(); // don't let the overlay grab the mouse again
+    stopped = true;
+    input.dispose();
+    renderer.dispose();
+    showLevelSelect();
+  });
+  const takeMouse = (): void => {
     audio.resumeAudio();
     input.requestLock();
-  });
+  };
+  canvas.addEventListener('click', takeMouse);
+  document.getElementById('pause-overlay')!.addEventListener('click', takeMouse);
   audio.playRoundStart();
+
+  // Paint once up front, so the room is on the paper before the first tick.
+  renderer.draw(room, new Set(), [{ frame: run.liveFrame, alpha: 1 }]);
 
   const STEP = 1 / 60;
   let acc = 0;
@@ -176,15 +326,15 @@ function runLevel(
 
     if (ticks > 0 && input.isLocked()) {
       const raw = input.consumeTick();
-      const dx = raw.dx / ticks;
-      const dy = raw.dy / ticks;
+      // Mouse movement is screen pixels; the room is drawn scaled up to fill the window.
+      const dx = raw.dx / ticks / renderer.scale;
+      const dy = raw.dy / ticks / renderer.scale;
       for (let i = 0; i < ticks; i++) {
         const before = run.liveFrame;
-        const doorsBefore = new Set(prevDoors);
         const report = run.tick({ dx, dy, down: raw.down });
         const actualMove = Math.hypot(report.frame.x - before.x, report.frame.y - before.y);
         const requestedMove = Math.hypot(dx, dy);
-        const secondsLeft = (clockTicks - run.tickIndex) / 60;
+        const secondsLeft = (run.clockTicks - run.tickIndex) / 60;
         handleTickAudio(secondsLeft, requestedMove, actualMove, report.frame.down);
 
         if (report.roundOver) {
@@ -196,24 +346,23 @@ function runLevel(
           audio.playRoundEndWhoosh();
           lastTickSecond = -1;
           if (report.ranOutOfRounds) {
-            finishOutOfRounds(levelId, levelName, room, clockTicks, roundLimit);
+            finishOutOfRounds(levelId, levelName);
             return;
           }
           audio.playRoundStart();
         }
-        void doorsBefore;
       }
     }
 
     document.getElementById('hud-round')!.textContent = String(run.round);
     document.getElementById('hud-time')!.textContent = `${run.elapsedSeconds().toFixed(2)}s`;
-    const pct = Math.max(0, 100 - (run.tickIndex / clockTicks) * 100);
+    const pct = Math.max(0, 100 - (run.tickIndex / run.clockTicks) * 100);
     document.getElementById('hud-clock-bar')!.style.width = `${pct}%`;
 
     const arrows: DrawArrow[] = run.replays.map((r, i) => ({
       frame: r[Math.min(run.tickIndex, r.length - 1)],
       label: String(i + 1),
-      alpha: 0.4,
+      alpha: 0.45,
     }));
     arrows.push({ frame: run.liveFrame, alpha: 1 });
     renderer.draw(room, computeOpenDoors(room, run), arrows);
@@ -224,18 +373,21 @@ function runLevel(
   function finishWin(id: string, name: string, seconds: number): void {
     stopped = true;
     input.dispose();
+    renderer.dispose();
     const best = saveBestTime(id, hardness, seconds);
     const idx = LEVELS.findIndex((l) => l.id === id);
     unlockUpTo(idx + 2);
     render(`
-      <div class="screen">
-        <h1>${name} — cleared!</h1>
-        <p>Time: ${seconds.toFixed(2)}s</p>
-        <p class="dim">Best: ${best.toFixed(2)}s</p>
-        <div class="row">
-          <button id="retry-btn">Retry</button>
-          ${idx + 1 < LEVELS.length ? '<button id="next-btn" class="primary">Next level</button>' : ''}
-          <button id="select-btn">Level select</button>
+      <div class="sheet">
+        <div class="start-body">
+          <h1>${name} — out!</h1>
+          <p class="lead" style="margin-top: 20px;">${seconds.toFixed(2)} seconds.</p>
+          <p class="note">best so far ${best.toFixed(2)}s</p>
+          <div class="row" style="margin-top: 36px;">
+            ${idx + 1 < LEVELS.length ? '<button id="next-btn" class="primary">Next →</button>' : ''}
+            <button id="retry-btn" class="boxed">again</button>
+            <button id="select-btn" class="boxed">the levels</button>
+          </div>
         </div>
       </div>
     `);
@@ -244,22 +396,19 @@ function runLevel(
     document.getElementById('next-btn')?.addEventListener('click', () => startLevel(LEVELS[idx + 1].id));
   }
 
-  function finishOutOfRounds(
-    id: string,
-    name: string,
-    _room: ReturnType<(typeof LEVELS)[number]['build']>,
-    _clockTicks: number,
-    _roundLimit: number,
-  ): void {
+  function finishOutOfRounds(id: string, name: string): void {
     stopped = true;
     input.dispose();
+    renderer.dispose();
     render(`
-      <div class="screen">
-        <h1>Out of rounds</h1>
-        <p>${name} starts over from round 1.</p>
-        <div class="row">
-          <button id="retry-btn" class="primary">Try again</button>
-          <button id="select-btn">Level select</button>
+      <div class="sheet">
+        <div class="start-body">
+          <h1>Out of rounds</h1>
+          <p class="lead" style="margin-top: 20px;">${name} starts over from round 1.</p>
+          <div class="row" style="margin-top: 36px;">
+            <button id="retry-btn" class="primary">Try again</button>
+            <button id="select-btn" class="boxed">the levels</button>
+          </div>
         </div>
       </div>
     `);
