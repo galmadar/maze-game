@@ -1,5 +1,6 @@
 import type { RoomDef } from '../content/types';
-import { stepTick } from './Simulation';
+import { pastSelfFrameAt } from './PastSelf';
+import { roomStateFor, stepTick, type RoomState } from './Simulation';
 import type { Frame, TickInput } from './types';
 
 export interface TickReport {
@@ -35,6 +36,28 @@ export class LevelRun {
   /** The CURRENT round's clock. Read as a plain property by the HUD every frame. */
   get clockTicks(): number {
     return this.round * this.clockStepTicks;
+  }
+
+  /** Every arrow — you and each past self — where it stood on the previous tick. */
+  private prevStates(): Frame[] {
+    const spawnFrame: Frame = { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
+    const replays = this.replays.map((r) => pastSelfFrameAt(r, this.tickIndex - 1, spawnFrame));
+    const live = this.tickIndex === 0 ? spawnFrame : this.currentRecording[this.tickIndex - 1];
+    return [live, ...replays];
+  }
+
+  /**
+   * The room as the sim sees it this tick. The renderer asks for this rather
+   * than working it out again and drifting from the sim.
+   */
+  get roomState(): RoomState {
+    return roomStateFor(this.room, this.prevStates());
+  }
+
+  /** Where each past self is standing right now, frozen ones included. */
+  pastSelfFrames(): Frame[] {
+    const spawnFrame: Frame = { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
+    return this.replays.map((r) => pastSelfFrameAt(r, this.tickIndex, spawnFrame));
   }
 
   private resetForNewRound(): void {

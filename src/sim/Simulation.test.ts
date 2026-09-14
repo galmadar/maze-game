@@ -14,6 +14,7 @@ function room(): RoomDef {
       { x: 0, y: 70, w: 300, h: 30 },
     ],
     buttons: [{ id: 'btn', zone: { x: 100, y: 30, w: 20, h: 40 } }],
+    plates: [],
     doors: [{ id: 'door', rect: { x: 200, y: 30, w: 20, h: 40 }, buttonIds: ['btn'] }],
   };
 }

@@ -7,17 +7,43 @@ function isInRect(p: { x: number; y: number }, r: Rect): boolean {
   return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 }
 
-/** Which doors are open, based on who was holding which button as of the previous tick. */
-export function openDoorsFor(room: RoomDef, prevStates: Frame[]): Set<string> {
+/** What the room's things are doing, given where every arrow was on a given tick. */
+export interface RoomState {
+  heldButtons: Set<string>;
+  satisfiedPlates: Set<string>;
+  openDoors: Set<string>;
+}
+
+/**
+ * Every arrow counts the same here — live or past self — so a self that ran out
+ * of recording and froze on a plate goes on weighing it down for good.
+ */
+export function roomStateFor(room: RoomDef, states: Frame[]): RoomState {
   const heldButtons = new Set<string>();
   for (const b of room.buttons) {
-    if (prevStates.some((s) => s.down && isInRect(s, b.zone))) heldButtons.add(b.id);
+    if (states.some((s) => s.down && isInRect(s, b.zone))) heldButtons.add(b.id);
   }
-  const open = new Set<string>();
+
+  const satisfiedPlates = new Set<string>();
+  for (const p of room.plates) {
+    // Standing on it is enough — nobody has to hold the mouse button down.
+    const standing = states.reduce((n, s) => (isInRect(s, p.zone) ? n + 1 : n), 0);
+    if (standing >= p.needs) satisfiedPlates.add(p.id);
+  }
+
+  const openDoors = new Set<string>();
   for (const d of room.doors) {
-    if (d.buttonIds.some((id) => heldButtons.has(id))) open.add(d.id);
+    const held = d.buttonIds.some((id) => heldButtons.has(id));
+    const weighed = (d.plateIds ?? []).some((id) => satisfiedPlates.has(id));
+    if (held || weighed) openDoors.add(d.id);
   }
-  return open;
+
+  return { heldButtons, satisfiedPlates, openDoors };
+}
+
+/** Which doors are open, based on where every arrow was as of the previous tick. */
+export function openDoorsFor(room: RoomDef, prevStates: Frame[]): Set<string> {
+  return roomStateFor(room, prevStates).openDoors;
 }
 
 export function activeWalls(room: RoomDef, openDoorIds: Set<string>): Rect[] {

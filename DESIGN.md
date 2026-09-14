@@ -37,15 +37,22 @@ set up, and long enough to go wrong.
 
 ## Things in the room
 
-| Thing | How it works |
-|---|---|
-| **Hold button** | A door is open only while some arrow holds the mouse button down on it. |
-| **Click switch** | One click flips a door or bridge. Clicking again flips it back. |
-| **Pressure plate** | Open while some arrow rests on it. No click needed. |
-| **Weight plate** | Needs 2 or 3 arrows on it together. |
-| **Timer door** | A click opens it for a few seconds. |
-| **Crusher** | Closes on any arrow under it. That arrow is out for the rest of the round. |
-| **Key** | Click to pick it up, then carry it to a lock. |
+| Thing | Built? | How it works |
+|---|---|---|
+| **Hold button** | yes | A door is open only while some arrow holds the mouse button down on it. |
+| **Weight plate** | yes | A square on the floor that counts arrows. Its door is open only while 2 or 3 of them stand on it together. No click needed — standing there is enough. |
+| **Click switch** | not yet | One click flips a door or bridge. Clicking again flips it back. |
+| **Pressure plate** | not yet | Open while some arrow rests on it. No click needed. |
+| **Timer door** | not yet | A click opens it for a few seconds. |
+| **Crusher** | not yet | Closes on any arrow under it. That arrow is out for the rest of the round. |
+| **Key** | not yet | Click to pick it up, then carry it to a lock. |
+
+A door lists what opens it, and is open while **any** of those is satisfied — so one
+door can have a button *and* a plate, and either will do.
+
+Every arrow on a plate counts the same: you, and every past self, whether or not it is
+holding the mouse button. Which is the whole point — you cannot stand on a 2-plate
+alone. Someone you used to be has to still be standing there.
 
 Past selves always do exactly what they did, even when it no longer makes sense. If a
 crusher gets one, it stops there. Getting in each other's way is part of the game.
@@ -57,13 +64,25 @@ first round makes a good doorstop.
 
 ## First levels (to teach one thing at a time)
 
-1. **Hello** — a clear path to the exit. Just move.
-2. **Hold the door** — a hold button, and a door behind it. Needs 2 rounds.
-3. **Relay** — three doors in a row, each button behind the last door. 3 rounds.
-4. **Heavy** — a 2-arrow weight plate plus a hold button. 3 rounds.
-5. **Crusher hall** — one self stands on a plate that stops the crusher while the others run.
+Levels 1-3 are one straight corridor: nothing to read but the doors. From 4 on the
+rooms are proper little mazes — corners, branches and dead ends — and the corridor
+width from the hardness table is how wide their passages are.
 
-After that levels mix things up, and the round limit gets tighter.
+1. **Hello** — a clear path to the exit. Just move. 1 round.
+2. **Hold the door** — a hold button, and a door behind it. 2 rounds.
+3. **Relay** — three doors in a row, each button behind the last door. 4 rounds.
+4. **Heavy** — a maze with a 2-arrow weight plate down a dead end. Two of you stand on
+   it, the third walks out. 3 rounds.
+5. **Hold and stand** — the plate is behind a held door, so the hold has to come first.
+   One holds, two stand, one walks out. 4 rounds.
+6. **Three of you** — same idea, one heavier: the plate wants three. 4 rounds.
+7. **Dead ends** — two plates, one behind the other, in a maze full of wrong turns.
+   5 rounds.
+8. **The crowd** — a 2-plate opens the way to a 3-plate. Everyone you have. 6 rounds.
+
+Each level's **minimum rounds** is the fewest it can actually be beaten in; the round
+limit adds the hardness table's spare rounds on top. Hard gives none, so on hard every
+round has to count.
 
 ## Hardness
 
@@ -93,7 +112,7 @@ result. That lets the tests play a level from recordings.
 A brother of `cranes-game`: TypeScript + Vite, same rule.
 
 - `src/sim/` — rules: rooms, things, clock, rounds, recording and replay. No drawing, no browser. Tested.
-- `src/content/` — the level list and hardness table.
+- `src/content/` — the room shapes (a straight corridor, and a maze), the level list and the hardness table.
 - `src/render/` — draws on a 2D canvas. No three.js; the game is flat.
 - `src/input/` — pointer lock, turning mouse events into moves and button presses for the sim.
 

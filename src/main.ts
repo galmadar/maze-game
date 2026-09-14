@@ -292,7 +292,7 @@ function runLevel(
   audio.playRoundStart();
 
   // Paint once up front, so the room is on the paper before the first tick.
-  renderer.draw(room, new Set(), [{ frame: run.liveFrame, alpha: 1 }]);
+  renderer.draw(room, run.roomState, [{ frame: run.liveFrame, alpha: 1 }]);
 
   const STEP = 1 / 60;
   let acc = 0;
@@ -359,13 +359,13 @@ function runLevel(
     const pct = Math.max(0, 100 - (run.tickIndex / run.clockTicks) * 100);
     document.getElementById('hud-clock-bar')!.style.width = `${pct}%`;
 
-    const arrows: DrawArrow[] = run.replays.map((r, i) => ({
-      frame: r[Math.min(run.tickIndex, r.length - 1)],
+    const arrows: DrawArrow[] = run.pastSelfFrames().map((frame, i) => ({
+      frame,
       label: String(i + 1),
       alpha: 0.45,
     }));
     arrows.push({ frame: run.liveFrame, alpha: 1 });
-    renderer.draw(room, computeOpenDoors(room, run), arrows);
+    renderer.draw(room, run.roomState, arrows);
 
     requestAnimationFrame(frame);
   }
@@ -417,25 +417,6 @@ function runLevel(
   }
 
   requestAnimationFrame(frame);
-}
-
-function computeOpenDoors(room: ReturnType<(typeof LEVELS)[number]['build']>, run: LevelRun): Set<string> {
-  // Recreate the same previous-tick-based door state used by the sim, for drawing only.
-  const spawnFrame = { x: room.spawn.x, y: room.spawn.y, down: false };
-  const prevReplays = run.replays.map((r) => r[Math.max(0, run.tickIndex - 1)] ?? spawnFrame);
-  const prevLive = run.tickIndex === 0 ? spawnFrame : run.currentRecording[run.tickIndex - 1] ?? run.liveFrame;
-  const heldButtons = new Set<string>();
-  for (const b of room.buttons) {
-    for (const s of [prevLive, ...prevReplays]) {
-      if (s.down && s.x >= b.zone.x && s.x <= b.zone.x + b.zone.w && s.y >= b.zone.y && s.y <= b.zone.y + b.zone.h) {
-        heldButtons.add(b.id);
-        break;
-      }
-    }
-  }
-  const open = new Set<string>();
-  for (const d of room.doors) if (d.buttonIds.some((id) => heldButtons.has(id))) open.add(d.id);
-  return open;
 }
 
 if (isTouchDevice()) {
