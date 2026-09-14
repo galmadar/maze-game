@@ -1,5 +1,6 @@
 import type { RoomDef } from '../content/types';
 import { moveWithCollision } from './Collision';
+import { pastSelfFrameAt } from './PastSelf';
 import type { Frame, Rect, TickInput, Vec2 } from './types';
 
 function isInRect(p: { x: number; y: number }, r: Rect): boolean {
@@ -34,6 +35,7 @@ export interface TickResult {
  * Advance one fixed tick. Past-self arrows just play back their recorded
  * frame for this tick — verbatim, even if it no longer makes sense — only
  * the live arrow is actually simulated against current doors/walls.
+ * Past the end of a recording, see `pastSelfFrameAt`.
  *
  * Door state for THIS tick is read from the PREVIOUS tick's positions, not
  * this tick's, so an arrow can't hold a button and be already past its door
@@ -48,14 +50,14 @@ export function stepTick(
   spawn: Vec2,
 ): TickResult {
   const spawnFrame: Frame = { x: spawn.x, y: spawn.y, down: false };
-  const prevReplays = replays.map((r) => (tickIndex === 0 ? spawnFrame : r[tickIndex - 1]));
+  const prevReplays = replays.map((r) => pastSelfFrameAt(r, tickIndex - 1, spawnFrame));
   const doorsOpen = openDoorsFor(room, [prevLive, ...prevReplays]);
   const walls = activeWalls(room, doorsOpen);
 
   const pos = moveWithCollision(prevLive, input.dx, input.dy, walls);
   const liveFrame: Frame = { x: pos.x, y: pos.y, down: input.down };
 
-  const replayCurrent = replays.map((r) => r[tickIndex]);
+  const replayCurrent = replays.map((r) => pastSelfFrameAt(r, tickIndex, spawnFrame));
   const won = [liveFrame, ...replayCurrent].some((f) => isInRect(f, room.exit));
 
   return { liveFrame, doorsOpen, won };
