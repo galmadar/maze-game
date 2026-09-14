@@ -4,34 +4,157 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maze Run</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Patrick+Hand&display=swap"
+    />
     <style>
-      :root { color-scheme: dark; }
+      :root {
+        color-scheme: light;
+        --sheet: #f5ecd9;
+        --rule: #c9b89a;
+        --ink: #2f3b4a;
+        --pencil: #5a6675;
+        --red: #c25b4a;
+        --green: #4d7548;
+        --faint: #8a7d63;
+        --quiet: #6b6250;
+        --hand: 'Patrick Hand', 'Bradley Hand', 'Segoe Print', cursive, sans-serif;
+        --caveat: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive, sans-serif;
+      }
       * { box-sizing: border-box; }
-      html, body { margin: 0; height: 100%; background: #0c0e12; color: #e6e9ef; font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
-      #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
-      .screen { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 480px; padding: 20px; }
+
+      /* The sheet: colour, then the squared ruling pressed faintly into it. */
+      html, body {
+        margin: 0;
+        height: 100%;
+        background-color: var(--sheet);
+        background-image:
+          repeating-linear-gradient(to right, rgba(201, 184, 154, 0.5) 0 1px, transparent 1px 60px),
+          repeating-linear-gradient(to bottom, rgba(201, 184, 154, 0.5) 0 1px, transparent 1px 60px);
+        color: var(--ink);
+        font: 20px/1.45 var(--hand);
+        overflow: hidden;
+      }
+
+      /* The sheet's grain, over everything, so nothing looks printed. */
+      #grain {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        opacity: 0.055;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23g)'/%3E%3C/svg%3E");
+      }
+
+      #app { position: fixed; inset: 0; z-index: 1; }
       .hidden { display: none !important; }
-      h1 { margin: 0; letter-spacing: 0.04em; }
-      button { font: inherit; background: #1c2130; color: #e6e9ef; border: 1px solid #3a4356; border-radius: 8px; padding: 10px 18px; cursor: pointer; }
-      button:hover { background: #262c40; }
-      button.primary { background: #ffce54; color: #0c0e12; border-color: #ffce54; font-weight: 600; }
-      .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-      .pick { border: 2px solid transparent; }
-      .pick.is-selected { border-color: #ffce54; }
-      #game-wrap { position: relative; }
-      canvas { display: block; background: #141820; border-radius: 6px; max-width: 90vw; max-height: 70vh; }
-      .hud { position: absolute; font: 12px/1.4 ui-monospace, monospace; color: #e6e9ef; background: rgba(12,14,18,0.72); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 10px; pointer-events: none; }
-      #hud-top { top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; pointer-events: none; }
-      .clock-track { width: 160px; height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 8px; }
-      .clock-bar { height: 100%; background: #ffce54; width: 100%; }
-      #mute-btn { position: absolute; top: 8px; right: 8px; pointer-events: auto; font-size: 11px; padding: 4px 8px; }
-      #hud-top #mute-btn { position: static; margin-left: 8px; }
-      .dim { color: #8b94a5; font-size: 12.5px; }
-      #pause-overlay { position: absolute; inset: 0; background: rgba(12,14,18,0.85); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; }
+
+      /* ---- shared hand-drawn bits ---- */
+      h1, h2 { font-family: var(--caveat); font-weight: 700; margin: 0; line-height: 0.95; color: var(--ink); }
+      h1 { font-size: clamp(48px, 9vw, 150px); letter-spacing: -0.01em; }
+      h2 { font-size: clamp(34px, 5vw, 82px); }
+      p { margin: 0; }
+      .lead { font-size: clamp(19px, 2vw, 29px); line-height: 1.45; color: #5c5341; max-width: 30ch; }
+      .note { font-size: clamp(16px, 1.5vw, 24px); color: var(--faint); }
+      .quiet { font-size: clamp(15px, 1.3vw, 21px); color: #9a8d73; }
+
+      button {
+        font: inherit;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        padding: 12px 26px;
+        cursor: pointer;
+        position: relative;
+        font-size: clamp(17px, 1.7vw, 27px);
+        color: var(--quiet);
+      }
+      button:disabled { cursor: default; opacity: 0.45; }
+
+      /* A pencil box, drawn once as an SVG that wobbles under a turbulence filter. */
+      .boxed {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80' preserveAspectRatio='none'%3E%3Cfilter id='w' x='-10%25' y='-25%25' width='120%25' height='150%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' seed='4' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='2.6' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url(%23w)'%3E%3Crect x='5' y='5' width='230' height='70' rx='10' fill='none' stroke='%232f3b4a' stroke-width='3.2'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+      }
+      .primary {
+        font-family: var(--caveat);
+        font-weight: 700;
+        font-size: clamp(28px, 3.4vw, 46px);
+        color: var(--ink);
+        padding: 10px 34px;
+        background-image:
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80' preserveAspectRatio='none'%3E%3Cfilter id='w' x='-10%25' y='-25%25' width='120%25' height='150%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' seed='6' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='2.6' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url(%23w)'%3E%3Crect x='6' y='6' width='228' height='68' rx='10' fill='none' stroke='%232f3b4a' stroke-width='4'/%3E%3C/g%3E%3C/svg%3E"),
+          repeating-linear-gradient(-30deg, rgba(232, 176, 75, 0.5) 0 3px, transparent 3px 8px);
+        background-size: 100% 100%, auto;
+        background-repeat: no-repeat, repeat;
+      }
+      .primary:hover { background-color: rgba(232, 176, 75, 0.12); }
+      button.plain:hover { color: var(--ink); }
+
+      /* The chosen difficulty, circled in red pencil. */
+      .pick.is-selected {
+        color: var(--ink);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 168 62' preserveAspectRatio='none'%3E%3Cfilter id='s' x='-12%25' y='-25%25' width='124%25' height='150%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' seed='4' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='2.4' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath d='M18 44 C6 32 10 14 34 9 C72 2 128 4 150 12 C164 18 162 42 146 49 C120 60 44 60 18 44 Z' fill='none' stroke='%23c25b4a' stroke-width='3.4' filter='url(%23s)'/%3E%3C/svg%3E");
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+      }
+
+      .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+
+      /* ---- start screen ---- */
+      .sheet { position: absolute; inset: 0; padding: clamp(28px, 5vh, 78px) clamp(24px, 8vw, 120px); display: flex; flex-direction: column; }
+      .start-body { margin: auto 0; max-width: 760px; }
+      .start-row { margin-top: clamp(24px, 5vh, 58px); display: flex; align-items: flex-end; gap: clamp(24px, 4vw, 56px); flex-wrap: wrap; }
+      .picker { display: flex; flex-direction: column; gap: 14px; }
+      .corner-sketch { position: absolute; right: clamp(16px, 6vw, 96px); top: 50%; transform: translateY(-50%); width: min(34vw, 400px); pointer-events: none; }
+      .corner-sketch svg { width: 100%; height: auto; display: block; }
+      .corner-cap { text-align: center; margin-top: 2px; }
+      @media (max-width: 1080px) { .corner-sketch { display: none; } }
+      .sheet-foot { position: absolute; left: clamp(24px, 8vw, 120px); right: clamp(16px, 6vw, 96px); bottom: clamp(18px, 4vh, 44px); display: flex; justify-content: space-between; gap: 20px; }
+
+      /* ---- level list ---- */
+      .head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; }
+      .levels { margin-top: clamp(20px, 4vh, 54px); display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: clamp(18px, 3vw, 44px); overflow-y: auto; padding-bottom: 10px; }
+      .level-card { display: flex; flex-direction: column; gap: 12px; text-align: left; padding: 0; background: none; cursor: pointer; }
+      .level-card:disabled { opacity: 0.45; }
+      .level-card svg { width: 100%; height: auto; display: block; }
+      .level-name { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+      .level-name b { font-family: var(--caveat); font-weight: 700; font-size: clamp(24px, 2.6vw, 38px); color: var(--ink); }
+      .level-best { font-size: clamp(15px, 1.5vw, 22px); color: var(--green); }
+      .level-locked { font-size: clamp(15px, 1.5vw, 22px); color: var(--faint); }
+
+      /* ---- the game ---- */
+      #game-wrap { position: absolute; inset: 0; }
+      #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: transparent; }
+      #hud-top {
+        position: absolute; top: clamp(14px, 3vh, 34px); left: clamp(20px, 4vw, 64px); right: clamp(20px, 4vw, 64px);
+        display: flex; align-items: flex-end; justify-content: space-between; gap: clamp(16px, 3vw, 40px);
+        pointer-events: none;
+      }
+      .hud-title { font-family: var(--caveat); font-weight: 700; font-size: clamp(30px, 3.8vw, 52px); line-height: 1; }
+      .hud-sub { font-size: clamp(15px, 1.5vw, 21px); color: #7d7259; }
+      .hud-clock { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; max-width: 560px; }
+      .hud-clock-head { display: flex; align-items: baseline; justify-content: space-between; font-size: clamp(14px, 1.4vw, 20px); color: #7d7259; }
+      #hud-time { font-family: var(--caveat); font-weight: 700; font-size: clamp(24px, 2.8vw, 40px); line-height: 1; color: var(--red); }
+      .clock-track { height: 13px; border-radius: 999px; background: #cdbd9f; overflow: hidden; }
+      .clock-bar { height: 100%; border-radius: 999px; background: var(--red); width: 100%; }
+      .hud-right { display: flex; align-items: center; gap: 22px; font-size: clamp(14px, 1.4vw, 20px); color: #7d7259; pointer-events: auto; }
+      #mute-btn { font: inherit; color: #7d7259; padding: 2px 6px; background: none; }
+      #mute-btn:hover { color: var(--ink); }
+      .legend { position: absolute; left: clamp(20px, 4vw, 64px); bottom: clamp(14px, 3vh, 26px); display: flex; align-items: center; gap: 26px; font-size: clamp(14px, 1.4vw, 19px); color: #7d7259; pointer-events: none; }
+      .legend span { display: flex; align-items: center; gap: 9px; }
+      #pause-overlay { position: absolute; inset: 0; background: rgba(245, 236, 217, 0.86); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; z-index: 3; }
+      #pause-overlay .paused { font-family: var(--caveat); font-weight: 700; font-size: clamp(30px, 4vw, 56px); }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="grain"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
