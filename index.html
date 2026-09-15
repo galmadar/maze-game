@@ -144,6 +144,26 @@
       .clock-track { height: 13px; border-radius: 999px; background: #cdbd9f; overflow: hidden; }
       .clock-bar { height: 100%; border-radius: 999px; background: var(--red); width: 100%; }
       .hud-right { display: flex; align-items: center; gap: 22px; font-size: clamp(14px, 1.4vw, 20px); color: #7d7259; pointer-events: auto; }
+
+      /* The keys, written up in the margin — same pencil box as every other button. */
+      .hud-keys { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; white-space: nowrap; }
+      .hud-keys span { display: block; }
+      .key {
+        display: inline-block;
+        font-family: var(--caveat);
+        font-weight: 700;
+        color: var(--ink);
+        padding: 0 10px 2px;
+        margin-right: 6px;
+        min-width: 3.4em;
+        text-align: center;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80' preserveAspectRatio='none'%3E%3Cfilter id='w' x='-10%25' y='-25%25' width='120%25' height='150%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' seed='4' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='2.6' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url(%23w)'%3E%3Crect x='5' y='5' width='230' height='70' rx='10' fill='none' stroke='%232f3b4a' stroke-width='3.2'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+      }
+      /* Ringed in the same red pencil as the clock, because it IS the clock running on. */
+      .ff { color: var(--red); }
+      .pause-keys { align-items: center; text-align: center; color: #7d7259; font-size: clamp(15px, 1.5vw, 21px); margin-top: 6px; }
       #mute-btn { font: inherit; color: #7d7259; padding: 2px 6px; background: none; }
       #mute-btn:hover { color: var(--ink); }
       .legend { position: absolute; left: clamp(20px, 4vw, 64px); bottom: clamp(14px, 3vh, 26px); display: flex; align-items: center; gap: 26px; font-size: clamp(14px, 1.4vw, 19px); color: #7d7259; pointer-events: none; }

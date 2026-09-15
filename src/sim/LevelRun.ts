@@ -66,6 +66,33 @@ export class LevelRun {
     this.liveFrame = { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
   }
 
+  /** Bank the round's recording — however long it turned out to be — and roll over. */
+  private closeRound(frame: Frame): TickReport {
+    this.replays.push(this.currentRecording);
+    this.round++;
+    if (this.round > this.roundLimit) {
+      this.replays = [];
+      this.round = 1;
+      this.resetForNewRound();
+      return { won: false, ranOutOfRounds: true, roundOver: true, frame };
+    }
+    this.resetForNewRound();
+    return { won: false, ranOutOfRounds: false, roundOver: true, frame };
+  }
+
+  /**
+   * The player says they are done: end the round now, short of the clock.
+   * The recording simply stops here, so the self freezes on its last frame for
+   * every later round — the same freeze `PastSelf.ts` already does when a
+   * recording runs out, which is why a half-length round is still a doorstop.
+   */
+  endRound(): TickReport {
+    if (this.finished) {
+      return { won: false, ranOutOfRounds: false, roundOver: false, frame: this.liveFrame };
+    }
+    return this.closeRound(this.liveFrame);
+  }
+
   tick(input: TickInput): TickReport {
     if (this.finished) {
       return { won: false, ranOutOfRounds: false, roundOver: false, frame: this.liveFrame };
@@ -89,26 +116,24 @@ export class LevelRun {
       return { won: true, ranOutOfRounds: false, roundOver: true, frame: liveFrame };
     }
 
+    // The clock is a ceiling, not a duration: it ends a round nobody ended sooner.
     if (this.tickIndex >= this.clockTicks) {
-      this.replays.push(this.currentRecording);
-      this.round++;
-      if (this.round > this.roundLimit) {
-        this.replays = [];
-        this.round = 1;
-        this.resetForNewRound();
-        return { won: false, ranOutOfRounds: true, roundOver: true, frame: liveFrame };
-      }
-      this.resetForNewRound();
-      return { won: false, ranOutOfRounds: false, roundOver: true, frame: liveFrame };
+      return this.closeRound(liveFrame);
     }
 
     return { won: false, ranOutOfRounds: false, roundOver: false, frame: liveFrame };
   }
 
-  /** Full clocks of every finished round, plus progress into the current one. */
+  /**
+   * Ticks actually run this attempt — every round's recording is exactly as long
+   * as that round lasted, so a round ended early costs exactly what it used.
+   */
+  get elapsedTicks(): number {
+    return this.replays.reduce((total, r) => total + r.length, 0) + this.tickIndex;
+  }
+
+  /** The score: time actually spent, not clocks handed out. */
   elapsedSeconds(ticksPerSecond = 60): number {
-    // Summed from the recordings, because every round's clock is a different length.
-    const finished = this.replays.reduce((total, r) => total + r.length, 0);
-    return (finished + this.tickIndex) / ticksPerSecond;
+    return this.elapsedTicks / ticksPerSecond;
   }
 }
