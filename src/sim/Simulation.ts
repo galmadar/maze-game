@@ -51,6 +51,11 @@ export function activeWalls(room: RoomDef, openDoorIds: Set<string>): Rect[] {
   return [...room.walls, ...closedDoors];
 }
 
+/** The one thing that wins a level: any arrow — you or a past self — standing in the way out. */
+export function reachedExit(room: RoomDef, frames: Frame[]): boolean {
+  return frames.some((f) => isInRect(f, room.exit));
+}
+
 export interface TickResult {
   liveFrame: Frame;
   doorsOpen: Set<string>;
@@ -84,7 +89,7 @@ export function stepTick(
   const liveFrame: Frame = { x: pos.x, y: pos.y, down: input.down };
 
   const replayCurrent = replays.map((r) => pastSelfFrameAt(r, tickIndex, spawnFrame));
-  const won = [liveFrame, ...replayCurrent].some((f) => isInRect(f, room.exit));
+  const won = reachedExit(room, [liveFrame, ...replayCurrent]);
 
   return { liveFrame, doorsOpen, won };
 }

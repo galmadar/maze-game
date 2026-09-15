@@ -3,8 +3,9 @@ import { clockTicksFor, HARDNESS, roundLimitFor } from './hardness';
 import { LEVELS } from './levels';
 import { LevelRun } from '../sim/LevelRun';
 import { ARROW_RADIUS } from '../sim/Collision';
-import { activeWalls } from '../sim/Simulation';
+import { activeWalls, type RoomState } from '../sim/Simulation';
 import type { Vec2 } from '../sim/types';
+import { VictoryReplay } from '../sim/VictoryReplay';
 import { cellCenter } from './rooms';
 import type { RoomDef } from './types';
 
@@ -148,7 +149,7 @@ describe('Relay — level solvable with scripted rounds', () => {
 // ---------------------------------------------------------------------------
 
 /** Walk to a point in a straight line, never overshooting it. */
-function walkTo(run: LevelRun, target: Vec2, down: boolean): boolean {
+function walkTo(run: LevelRun, target: Vec2, down: boolean, beforeTick?: () => void): boolean {
   for (let guard = 0; guard < 3000; guard++) {
     if (run.won) return false;
     const dx = target.x - run.liveFrame.x;
@@ -156,16 +157,17 @@ function walkTo(run: LevelRun, target: Vec2, down: boolean): boolean {
     const dist = Math.hypot(dx, dy);
     if (dist < 0.01) return false;
     const scale = Math.min(1, SPEED / dist);
+    beforeTick?.();
     if (run.tick({ dx: dx * scale, dy: dy * scale, down }).roundOver) return true;
   }
   throw new Error(`stuck short of ${target.x},${target.y} — something is blocking the way`);
 }
 
 /** Walk a path of maze cells. Returns true if the round's clock ran out on the way. */
-function walk(run: LevelRun, cells: string[], down = false): boolean {
+function walk(run: LevelRun, cells: string[], down = false, beforeTick?: () => void): boolean {
   for (const ref of cells) {
     const [c, r] = ref.split(',').map(Number);
-    if (walkTo(run, cellCenter(c, r), down)) return true;
+    if (walkTo(run, cellCenter(c, r), down, beforeTick)) return true;
   }
   return false;
 }
@@ -280,6 +282,104 @@ describe('Levels 4-8 — one round short is not enough', () => {
 
       walk(run, plan.win);
       expect(run.won).toBe(false);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The victory replay: the whole winning run played again, every round at once.
+// ---------------------------------------------------------------------------
+
+function roomStateAsLists(state: RoomState): Record<string, string[]> {
+  return {
+    heldButtons: [...state.heldButtons].sort(),
+    satisfiedPlates: [...state.satisfiedPlates].sort(),
+    openDoors: [...state.openDoors].sort(),
+  };
+}
+
+interface PlayedRun {
+  run: LevelRun;
+  /** Indexed by the winning round's tick: the room `LevelRun` read before that tick ran. */
+  statesByTick: RoomState[];
+}
+
+/**
+ * Play a plan to its win. `endSetupsEarly` is the player pressing space the
+ * moment a self is in place, which leaves short recordings behind; otherwise
+ * every setup round sits out its whole clock.
+ */
+function playPlan(def: (typeof LEVELS)[number], plan: Plan, endSetupsEarly: boolean): PlayedRun {
+  const hardness = HARDNESS.medium;
+  const room = def.build(hardness.corridorWidth);
+  const run = new LevelRun(room, clockTicksFor(hardness), roundLimitFor(def.minRounds, hardness));
+
+  for (const round of plan.setup) {
+    const down = round.hold ?? false;
+    walk(run, round.path, down);
+    if (endSetupsEarly) run.endRound();
+    else holdUntilRoundEnds(run, down);
+  }
+
+  const statesByTick: RoomState[] = [];
+  walk(run, plan.win, false, () => statesByTick.push(run.roomState));
+  return { run, statesByTick };
+}
+
+function replayOf(run: LevelRun): VictoryReplay {
+  // The winning round never became a replay — the level ended before it rolled over.
+  return new VictoryReplay(run.room, [...run.replays, run.currentRecording]);
+}
+
+/** Walk the replay through the winning round, checking it against what play showed. */
+function expectReplayMatches(replay: VictoryReplay, statesByTick: RoomState[]): void {
+  for (let t = 0; t < statesByTick.length; t++) {
+    expect(replay.tickIndex).toBe(t);
+    expect(roomStateAsLists(replay.roomState)).toEqual(roomStateAsLists(statesByTick[t]));
+    expect(replay.won).toBe(t === replay.winTick);
+    replay.advance();
+  }
+  expect(replay.tickIndex).toBe(replay.winTick);
+  expect(replay.won).toBe(true);
+}
+
+describe('the victory replay plays back the run that really happened', () => {
+  for (const [id, plan] of Object.entries(PLANS)) {
+    const def = level(id);
+
+    it(`${id}: every recording from tick 0 opens the same doors and wins on the same tick`, () => {
+      const { run, statesByTick } = playPlan(def, plan, false);
+      expect(run.won).toBe(true);
+
+      const replay = replayOf(run);
+      expect(replay.recordings).toHaveLength(def.minRounds);
+      expect(replay.winTick).toBe(run.currentRecording.length - 1);
+      expectReplayMatches(replay, statesByTick);
+
+      // A door really did open during the run — otherwise the agreement above
+      // would be the agreement of two empty sets.
+      expect(new Set(statesByTick.flatMap((s) => [...s.openDoors])).size).toBeGreaterThan(0);
+    });
+
+    it(`${id}: selves whose rounds were cut short freeze, and the replay is still won`, () => {
+      const { run, statesByTick } = playPlan(def, plan, true);
+      expect(run.won).toBe(true);
+
+      const replay = replayOf(run);
+      const setups = replay.recordings.slice(0, -1);
+
+      setups.forEach((recording, i) => {
+        // Cut short, so every one of them runs out well before the winning round does.
+        expect(recording.length).toBeLessThan(replay.winTick + 1);
+        const frozen = recording[recording.length - 1];
+        for (let t = recording.length; t <= replay.winTick; t++) {
+          expect(replay.framesAt(t)[i]).toEqual(frozen);
+        }
+      });
+
+      // And frozen is not the same as gone: the doors they hold stay held, tick
+      // for tick, exactly as play showed them.
+      expectReplayMatches(replay, statesByTick);
     });
   }
 });
