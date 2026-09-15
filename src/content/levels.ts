@@ -162,6 +162,78 @@ const THE_CROWD: MazeSpec = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// One small room each for the three newer things, so they can be played and
+// seen. These are proofs that the thing works, not the levels that will teach
+// it — those are somebody else's job.
+// ---------------------------------------------------------------------------
+
+// A switch in a dead-end pocket. Flip it and walk away: the door stays open.
+// The catch is not here, it is in every later round — your own past self walks
+// back in and flips it shut again.
+const FLIP_IT: MazeSpec = {
+  cols: 3,
+  rows: 2,
+  spawn: '0,0',
+  exit: '2,0',
+  links: ['0,0-1,0', '1,0-1,1', '1,1-2,1'],
+  switches: [{ id: 'flip', at: '2,1' }],
+  doors: [{ id: 'door', at: '1,0-2,0', openedBy: ['flip'] }],
+};
+
+// Two long arms out of the spawn: the timer pad down one, the door down the
+// other. Whoever clicks the pad is far too far away to use it, so one self
+// clicks while another — already waiting at the door — goes through.
+const IN_A_HURRY: MazeSpec = {
+  cols: 7,
+  rows: 4,
+  spawn: '0,0',
+  exit: '3,3',
+  links: [
+    // the long way round to the timer pad
+    '0,0-1,0',
+    '1,0-2,0',
+    '2,0-3,0',
+    '3,0-4,0',
+    '4,0-5,0',
+    '5,0-6,0',
+    '6,0-6,1',
+    '6,1-5,1',
+    '5,1-4,1',
+    '4,1-3,1',
+    '3,1-2,1',
+    '2,1-1,1',
+    // and the long way round to the door
+    '0,0-0,1',
+    '0,1-0,2',
+    '0,2-1,2',
+    '1,2-2,2',
+    '2,2-3,2',
+    '3,2-4,2',
+    '4,2-5,2',
+    '5,2-6,2',
+    '6,2-6,3',
+    '6,3-5,3',
+    '5,3-4,3',
+  ],
+  timers: [{ id: 'pad', at: '1,1' }],
+  doors: [{ id: 'door', at: '4,3-3,3', openedBy: ['pad'] }],
+};
+
+// Click the key to pick it up, carry it to the lock, and the lock stays open.
+// A past self that picked it up carries it again next round — so the key walks
+// around the room on its own.
+const CARRY_IT: MazeSpec = {
+  cols: 4,
+  rows: 2,
+  spawn: '0,0',
+  exit: '3,0',
+  links: ['0,0-0,1', '0,0-1,0', '1,0-2,0', '2,0-2,1'],
+  keys: [{ id: 'key', at: '0,1' }],
+  locks: [{ id: 'lock', at: '2,1' }],
+  doors: [{ id: 'door', at: '2,0-3,0', openedBy: ['lock'] }],
+};
+
 export const LEVELS: LevelDef[] = [
   {
     id: 'hello',
@@ -244,5 +316,29 @@ export const LEVELS: LevelDef[] = [
     name: 'The crowd',
     minRounds: 6,
     build: (cw) => mazeRoom(cw, THE_CROWD),
+  },
+  {
+    // One round: go and flip the switch, then stroll out through the door it
+    // left open. Nobody has to wait anywhere.
+    id: 'flip-it',
+    name: 'Flip it',
+    minRounds: 1,
+    build: (cw) => mazeRoom(cw, FLIP_IT),
+  },
+  {
+    // The pad is a whole room away from the door it opens — too far to click it
+    // and be through in the few seconds it gives you. Round 1 goes and clicks
+    // it; round 2 is already standing at the door when it does.
+    id: 'in-a-hurry',
+    name: 'In a hurry',
+    minRounds: 2,
+    build: (cw) => mazeRoom(cw, IN_A_HURRY),
+  },
+  {
+    // One round: take the key, carry it to the lock, walk out.
+    id: 'carry-it',
+    name: 'Carry it',
+    minRounds: 1,
+    build: (cw) => mazeRoom(cw, CARRY_IT),
   },
 ];

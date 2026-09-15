@@ -2,7 +2,16 @@
 // hands it the hardness's corridor width, so the same room is roomy on easy and
 // tight on hard.
 import type { Rect, Vec2 } from '../sim/types';
-import type { ButtonDef, DoorDef, PlateDef, RoomDef } from './types';
+import type {
+  ButtonDef,
+  DoorDef,
+  KeyDef,
+  LockDef,
+  PlateDef,
+  RoomDef,
+  SwitchDef,
+  TimerDef,
+} from './types';
 
 // ---------------------------------------------------------------- corridor
 
@@ -86,6 +95,25 @@ export interface MazePlateSpec {
   at: CellRef;
   needs: number;
 }
+export interface MazeSwitchSpec {
+  id: string;
+  at: CellRef;
+}
+export interface MazeTimerSpec {
+  id: string;
+  at: CellRef;
+  /** Ticks one click buys. Left out, the tuning number in hardness.ts. */
+  openTicks?: number;
+}
+export interface MazeKeySpec {
+  id: string;
+  at: CellRef;
+}
+export interface MazeLockSpec {
+  id: string;
+  at: CellRef;
+  keyIds?: string[];
+}
 
 export interface MazeSpec {
   cols: number;
@@ -97,6 +125,10 @@ export interface MazeSpec {
   doors?: MazeDoorSpec[];
   buttons?: MazeButtonSpec[];
   plates?: MazePlateSpec[];
+  switches?: MazeSwitchSpec[];
+  timers?: MazeTimerSpec[];
+  keys?: MazeKeySpec[];
+  locks?: MazeLockSpec[];
 }
 
 type Cell = [number, number];
@@ -200,13 +232,43 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
     zone: centeredSquare(parseCell(b.at), Math.min(cw * 0.7, 84)),
   }));
 
+  const switches: SwitchDef[] = (spec.switches ?? []).map((s) => ({
+    id: s.id,
+    zone: centeredSquare(parseCell(s.at), Math.min(cw * 0.66, 78)),
+  }));
+  const timers: TimerDef[] = (spec.timers ?? []).map((t) => ({
+    id: t.id,
+    zone: centeredSquare(parseCell(t.at), Math.min(cw * 0.7, 84)),
+    ...(t.openTicks === undefined ? {} : { openTicks: t.openTicks }),
+  }));
+  const keys: KeyDef[] = (spec.keys ?? []).map((k) => ({
+    id: k.id,
+    at: cellCenter(...parseCell(k.at)),
+  }));
+  const locks: LockDef[] = (spec.locks ?? []).map((l) => ({
+    id: l.id,
+    zone: centeredSquare(parseCell(l.at), Math.min(cw * 0.72, 88)),
+    ...(l.keyIds === undefined ? {} : { keyIds: l.keyIds }),
+  }));
+
   const plateIdSet = new Set(plates.map((p) => p.id));
   const buttonIdSet = new Set(buttons.map((b) => b.id));
+  const switchIdSet = new Set(switches.map((s) => s.id));
+  const timerIdSet = new Set(timers.map((t) => t.id));
+  const lockIdSet = new Set(locks.map((l) => l.id));
   const doors: DoorDef[] = (spec.doors ?? []).map((d) => {
     const [a, b] = addPassage(d.at);
     for (const id of d.openedBy) {
-      if (!plateIdSet.has(id) && !buttonIdSet.has(id)) {
-        throw new Error(`maze: door ${d.id} is opened by "${id}", which is no button or plate here`);
+      const known =
+        plateIdSet.has(id) ||
+        buttonIdSet.has(id) ||
+        switchIdSet.has(id) ||
+        timerIdSet.has(id) ||
+        lockIdSet.has(id);
+      if (!known) {
+        throw new Error(
+          `maze: door ${d.id} is opened by "${id}", which is no button or plate, switch, timer or lock here`,
+        );
       }
     }
     return {
@@ -214,6 +276,9 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
       rect: gapRect(a, b),
       buttonIds: d.openedBy.filter((id) => buttonIdSet.has(id)),
       plateIds: d.openedBy.filter((id) => plateIdSet.has(id)),
+      switchIds: d.openedBy.filter((id) => switchIdSet.has(id)),
+      timerIds: d.openedBy.filter((id) => timerIdSet.has(id)),
+      lockIds: d.openedBy.filter((id) => lockIdSet.has(id)),
       blocks: a[1] === b[1] ? 'x' : 'y',
     };
   });
@@ -276,6 +341,10 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
 
   for (const p of spec.plates ?? []) reachable(p.at, `plate ${p.id}`);
   for (const b of spec.buttons ?? []) reachable(b.at, `button ${b.id}`);
+  for (const s of spec.switches ?? []) reachable(s.at, `switch ${s.id}`);
+  for (const t of spec.timers ?? []) reachable(t.at, `timer ${t.id}`);
+  for (const k of spec.keys ?? []) reachable(k.at, `key ${k.id}`);
+  for (const l of spec.locks ?? []) reachable(l.at, `lock ${l.id}`);
 
   return {
     width,
@@ -286,5 +355,9 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
     buttons,
     plates,
     doors,
+    switches,
+    timers,
+    keys,
+    locks,
   };
 }

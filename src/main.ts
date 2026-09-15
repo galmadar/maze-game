@@ -426,6 +426,8 @@ function runLevel(
     const pct = Math.max(0, 100 - (run.tickIndex / run.clockTicks) * 100);
     document.getElementById('hud-clock-bar')!.style.width = `${pct}%`;
 
+    // Round order — the earlier selves, then you — the same order the sim reads
+    // frames in, so a carried key can be drawn on the arrow actually carrying it.
     const arrows: DrawArrow[] = run.pastSelfFrames().map((frame, i) => ({
       frame,
       label: String(i + 1),

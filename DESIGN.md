@@ -49,18 +49,62 @@ set up, and long enough to go wrong.
 |---|---|---|
 | **Hold button** | yes | A door is open only while some arrow holds the mouse button down on it. |
 | **Weight plate** | yes | A square on the floor that counts arrows. Its door is open only while 2 or 3 of them stand on it together. No click needed — standing there is enough. |
-| **Click switch** | not yet | One click flips a door or bridge. Clicking again flips it back. |
+| **Click switch** | yes | A lever in a box. One click flips it on and it **stays** on — nobody has to wait by it. Clicking again flips it back, and every arrow's click counts. |
+| **Timer door** | yes | A pad with a ring of time on it. A click opens its door for a few seconds and then lets it shut. Clicking again starts the few seconds over, it never adds up. |
+| **Key** | yes | A key lying on the floor. Click to pick it up, click again to put it down. It goes wherever its carrier goes. |
+| **Lock** | yes | A keyhole on the floor. A key touching it opens its door, and that door stays open for good. |
 | **Pressure plate** | not yet | Open while some arrow rests on it. No click needed. |
-| **Timer door** | not yet | A click opens it for a few seconds. |
 | **Crusher** | not yet | Closes on any arrow under it. That arrow is out for the rest of the round. |
-| **Key** | not yet | Click to pick it up, then carry it to a lock. |
 
 A door lists what opens it, and is open while **any** of those is satisfied — so one
-door can have a button *and* a plate, and either will do.
+door can have a button *and* a plate, and either will do. A switch, a timer or a lock
+goes on the same list: there is one question, "is this door open", and one answer.
 
 Every arrow on a plate counts the same: you, and every past self, whether or not it is
 holding the mouse button. Which is the whole point — you cannot stand on a 2-plate
 alone. Someone you used to be has to still be standing there.
+
+### A click is the tick the button goes down
+
+The hold button and the plate ask "is it down now". The three newer things ask
+something different: **did somebody click**, meaning the one tick a mouse button went
+from up to down. That is why a self parked on a switch with the button held flips it
+once, not sixty times a second, and why a self that froze holding the button is not
+flipping it for ever.
+
+### The switch: your own crowd is the obstacle
+
+Every click flips it, yours and every past self's, and it stays where it was put. So a
+round that walks over and flips it on is a round that has done its job and can walk
+away — nobody is parked. But the next round your earlier self walks over and flips it
+**again**. Counting how many of your selves touch that switch is the puzzle.
+
+Two selves clicking it on the same tick cancel out. The room only ever counts the
+clicks and asks whether the number is odd.
+
+### The timer door: a relay, not a hold
+
+A click buys a few seconds and the door shuts again. One arrow usually cannot click it
+and be through in time, so the job splits in two: one self clicks, while another —
+already standing at the door when that click happens again — walks through. That is
+the point of it, and the reason it is not just a hold button with extra steps.
+
+Re-clicking while it is still open **restarts** the few seconds. It never stacks, so
+you cannot bank time by clicking at it.
+
+### The key: something that moves
+
+Everything else in the room is nailed down. A key is not: click it to pick it up, click
+again to put it down, carry it onto a lock and the lock is open for good.
+
+The interesting part is what that does to a past self. A self that picked up the key
+picks it up again next round, at the same tick, and **carries it round the room on its
+own** while you are busy elsewhere. And a self that ran out of recording with the key
+in its hand freezes holding it — so the key freezes too, out in the middle of the
+floor where that self happened to stop. Nobody can take it off them. Planning where
+your selves put the key down is the whole of it.
+
+A hand holds one key. An arrow is not a key: standing on a lock does nothing.
 
 Past selves always do exactly what they did, even when it no longer makes sense. If a
 crusher gets one, it stops there. Getting in each other's way is part of the game.
@@ -97,6 +141,20 @@ Each level's **minimum rounds** is the fewest it can actually be beaten in; the 
 limit adds the hardness table's spare rounds on top. Hard gives none, so on hard every
 round has to count.
 
+## Three more rooms, one per new thing
+
+These are not the levels that will teach the switch, the timer and the key — those are
+still to be designed. They are one small room each, enough to play the thing and see
+it work.
+
+9. **Flip it** — a switch down a dead end, and a door to the way out. Flip it and
+   stroll out; nothing has to be held. 1 round.
+10. **In a hurry** — the timer pad is at the end of one long arm and its door at the
+    end of the other, far too far apart to do alone. Round 1 goes and clicks; round 2
+    is already at the door when that click happens again. 2 rounds.
+11. **Carry it** — a key in one pocket, a lock in another, and the door the lock opens
+    on the way out. 1 round.
+
 ## Hardness
 
 | | Easy | Medium | Hard |
@@ -109,7 +167,15 @@ round has to count.
 Hardness sets how fast the clock grows: on Easy every round gives you a lot more time
 than the one before, on Hard only a little. Medium is the plain 5-second step.
 
-Every number lives in one config file.
+Every number lives in one config file — including the two the newer things are made of:
+
+| Number | Now | What it decides |
+|---|---|---|
+| **Timer door, seconds open** | 3 | How long one click keeps a timer door open. Turn it down and a relay has to be tighter; turn it up and one arrow starts being able to do it alone. A room can override it for one pad. |
+| **Key reach** | 30 | How near an arrow has to be to a key to pick it up. A bit wider than the arrow itself, so you don't have to be exact. |
+
+The same hardness that makes passages narrower does **not** shorten the timer. How far
+apart the pad and its door are is the level's job, not the hardness table's.
 
 ## Recording and replay
 
@@ -123,6 +189,18 @@ that it is the freeze above.
 
 The game runs on fixed ticks (60 a second), so the same inputs always give the same
 result. That lets the tests play a level from recordings.
+
+**The room is worked out from those frames, never kept alongside them.** A button or a
+plate only needs this tick's frames. A switch, a timer, a carried key or an opened lock
+needs the ones before as well — so the game reads them forward from tick 0 of the
+round, out of the frames and nothing else, and keeps no running tally of its own. Ask
+the same recordings twice and you get the same room both times. That is what makes the
+victory replay below possible at all: a switch that remembered its own state would look
+right while you played and wrong when you watched it back.
+
+Frames are always kept in **round order** — the earliest self first, you last — in play
+and in the replay alike. It is how a key knows whose hand it is in from one tick to the
+next, and from play into the replay.
 
 The simulation has **no clock of its own** — it only ever advances one fixed tick at
 a time, and is handed those ticks by the drawing loop. That is what makes fast-forward
@@ -146,6 +224,12 @@ past self is read back in play. The room is asked of the simulation from those s
 frames, so there is only ever one answer to "is this door open" — a door drawn open
 in the replay is a door that really was open.
 
+That goes for the things that remember, too. The switch flips on the tick it flipped,
+the timer shows the seconds it had left, the key is in the hand it was in and on the
+floor where it was dropped. None of it is replayed from a note the live game kept; it
+is read forward out of the recordings, the same way play read it. A test walks the two
+side by side, tick for tick, and they have to agree on everything.
+
 The result — the time, and your best — is written in the margins, above and below,
 so it reads as a caption and never covers the maze. The buttons (next, again, the
 levels) sit in the bottom margin beside it, and pressing any of them stops the loop.
@@ -157,7 +241,7 @@ there is no second clock anywhere in the game.
 
 A brother of `cranes-game`: TypeScript + Vite, same rule.
 
-- `src/sim/` — rules: rooms, things, clock, rounds, recording and replay, and how many ticks a drawn frame is worth. No drawing, no browser. Tested.
+- `src/sim/` — rules: rooms, things, clock, rounds, recording and replay, and how many ticks a drawn frame is worth. The things that remember something are folded out of the frames here, and only here. No drawing, no browser. Tested.
 - `src/content/` — the room shapes (a straight corridor, and a maze), the level list and the hardness table.
 - `src/render/` — draws on a 2D canvas. No three.js; the game is flat.
 - `src/input/` — pointer lock, turning mouse events into moves and button presses for the sim.

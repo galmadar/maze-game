@@ -16,13 +16,54 @@ export interface PlateDef {
   needs: number;
 }
 
+/**
+ * A switch that stays where it was put. Every CLICK flips it — the tick a mouse
+ * button goes down on it — so a self parked on it flips it once, not sixty times
+ * a second. Past selves click too, which is the whole point: the crowd you built
+ * is the thing you have to count.
+ */
+export interface SwitchDef {
+  id: string;
+  zone: Rect;
+}
+
+/**
+ * A pad that opens its door for a few seconds and then lets it shut. Clicking it
+ * again while it is still open restarts the count rather than adding to it.
+ */
+export interface TimerDef {
+  id: string;
+  zone: Rect;
+  /** Ticks of light one click buys. Left out, TIMER_OPEN_TICKS. */
+  openTicks?: number;
+}
+
+/** A key lying on the floor. Click to pick it up, click again to put it down. */
+export interface KeyDef {
+  id: string;
+  at: Vec2;
+}
+
+/** Where a key has to end up. Once one touches it, it is open for good. */
+export interface LockDef {
+  id: string;
+  zone: Rect;
+  /** Which keys fit. Left out, any key does. */
+  keyIds?: string[];
+}
+
 export interface DoorDef {
   id: string;
   rect: Rect;
   // A door is open while ANY of its openers is satisfied: a button being held,
-  // or a plate carrying enough arrows. A door can list both and open either way.
+  // a plate carrying enough arrows, a switch left flipped on, a timer still
+  // counting down, or a lock a key has reached. A door can list several kinds
+  // and any one of them will do.
   buttonIds: string[];
   plateIds?: string[];
+  switchIds?: string[];
+  timerIds?: string[];
+  lockIds?: string[];
   /**
    * Which way through the door is blocked — 'x' for a door across a left-right
    * passage, 'y' for one across an up-down passage. Only the drawing cares: it
@@ -31,8 +72,8 @@ export interface DoorDef {
   blocks?: 'x' | 'y';
 }
 
-// A room's own things — walls/doors/buttons/plates/exit today, more things later
-// (keys, crushers...) slot in the same way.
+// A room's own things. The newer ones are optional, so a room with none of them
+// — and every test fixture written before they existed — is still a RoomDef.
 export interface RoomDef {
   width: number;
   height: number;
@@ -42,6 +83,10 @@ export interface RoomDef {
   buttons: ButtonDef[];
   plates: PlateDef[];
   doors: DoorDef[];
+  switches?: SwitchDef[];
+  timers?: TimerDef[];
+  keys?: KeyDef[];
+  locks?: LockDef[];
 }
 
 export interface LevelDef {
