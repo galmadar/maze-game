@@ -1,4 +1,5 @@
 import type { RoomDef } from '../content/types';
+import { LatchTimeline } from './Latches';
 import { pastSelfFrameAt } from './PastSelf';
 import { reachedExit, roomStateFor, type RoomState } from './Simulation';
 import type { Frame } from './types';
@@ -31,11 +32,19 @@ export class VictoryReplay {
   readonly winTick: number;
   tickIndex = 0;
   private holdLeft = 0;
+  /**
+   * The switches, timers, keys and locks, folded out of these recordings — the
+   * same fold `LevelRun` runs, over frames laid out in the same round order. So
+   * a switch drawn flipped here is a switch the run really did flip, and on the
+   * tick it flipped it.
+   */
+  private latches: LatchTimeline;
 
   constructor(room: RoomDef, recordings: Frame[][]) {
     this.room = room;
     this.recordings = recordings;
     this.winTick = findWinTick(room, recordings, this.spawnFrame);
+    this.latches = new LatchTimeline(room, (t) => this.framesAt(t));
   }
 
   /** Which recording is the round that got out — drawn as "you", the rest as past selves. */
@@ -47,7 +56,11 @@ export class VictoryReplay {
     return { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
   }
 
-  /** Where every self stands on a given tick. Past the end of a recording it freezes, as in play. */
+  /**
+   * Where every self stands on a given tick — in round order, oldest first,
+   * which is exactly the order `LevelRun` reads them in. Past the end of a
+   * recording a self freezes, as in play.
+   */
   framesAt(tick: number): Frame[] {
     const spawn = this.spawnFrame;
     return this.recordings.map((r) => pastSelfFrameAt(r, tick, spawn));
@@ -62,7 +75,8 @@ export class VictoryReplay {
    * exactly how `LevelRun` reads it, so the replay shows the doors play showed.
    */
   get roomState(): RoomState {
-    return roomStateFor(this.room, this.framesAt(this.tickIndex - 1));
+    const tick = this.tickIndex - 1;
+    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick));
   }
 
   get won(): boolean {

@@ -127,6 +127,31 @@ export function wobblyCirclePath(
   tracePoints(ctx, [...pts, pts[0]], true);
 }
 
+/**
+ * A wobbly arc — the ring of time left on a timer door. Angles in radians;
+ * it runs from `a0` to `a1`, so a shrinking `a1` is a clock running down.
+ */
+export function wobblyArcPath(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  a0: number,
+  a1: number,
+  seed: number,
+  amp: number,
+): void {
+  const n = Math.max(3, Math.round((Math.abs(a1 - a0) * r) / 12));
+  const pts: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + ((a1 - a0) * i) / n;
+    const rr = r + jitter(seed, i, 1, amp);
+    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+  }
+  ctx.beginPath();
+  tracePoints(ctx, pts, false);
+}
+
 /** A 45° pencil hatch, built once into a tile so filling a shape costs nothing. */
 export function makeHatch(
   ctx: CanvasRenderingContext2D,

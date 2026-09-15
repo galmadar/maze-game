@@ -20,6 +20,21 @@ export const HARDNESS: Record<Hardness, HardnessConfig> = {
 
 export const TICKS_PER_SECOND = 60;
 
+// ---- the things in the room ----
+// Same idea as the hardness table: the numbers that decide how a thing feels
+// live here, not buried in the rules that read them.
+
+/**
+ * How long a timer door stays open after a click. Long enough to be worth
+ * running for, short enough that one arrow usually can't click it and be
+ * through it — which is what makes it a relay between two of your selves.
+ */
+export const TIMER_OPEN_SECONDS = 3;
+export const TIMER_OPEN_TICKS = Math.round(TIMER_OPEN_SECONDS * TICKS_PER_SECOND);
+
+/** How near an arrow has to be to a key to pick it up — a little wider than the arrow. */
+export const KEY_REACH = 30;
+
 /** Round N's clock: N × the step. Round 1's clock is therefore one step. */
 export function clockSecondsFor(hardness: HardnessConfig, round = 1): number {
   return round * hardness.clockStepSeconds;

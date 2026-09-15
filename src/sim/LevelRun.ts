@@ -1,4 +1,5 @@
 import type { RoomDef } from '../content/types';
+import { LatchTimeline } from './Latches';
 import { pastSelfFrameAt } from './PastSelf';
 import { roomStateFor, stepTick, type RoomState } from './Simulation';
 import type { Frame, TickInput } from './types';
@@ -26,11 +27,20 @@ export class LevelRun {
   finished = false;
   won = false;
 
+  /**
+   * Switches, timers, keys and locks, folded out of this round's frames. A new
+   * one every round, because a round resets the room — and because it is only
+   * ever a fold, the victory replay can build its own over the same recordings
+   * and get the same answers.
+   */
+  private latches: LatchTimeline;
+
   constructor(room: RoomDef, clockStepTicks: number, roundLimit: number) {
     this.room = room;
     this.clockStepTicks = clockStepTicks;
     this.roundLimit = roundLimit;
     this.liveFrame = { x: room.spawn.x, y: room.spawn.y, down: false };
+    this.latches = new LatchTimeline(room, (t) => this.framesAt(t));
   }
 
   /** The CURRENT round's clock. Read as a plain property by the HUD every frame. */
@@ -38,12 +48,22 @@ export class LevelRun {
     return this.round * this.clockStepTicks;
   }
 
-  /** Every arrow — you and each past self — where it stood on the previous tick. */
-  private prevStates(): Frame[] {
-    const spawnFrame: Frame = { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
-    const replays = this.replays.map((r) => pastSelfFrameAt(r, this.tickIndex - 1, spawnFrame));
-    const live = this.tickIndex === 0 ? spawnFrame : this.currentRecording[this.tickIndex - 1];
-    return [live, ...replays];
+  private get spawnFrame(): Frame {
+    return { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
+  }
+
+  /**
+   * Where every arrow stood on a given tick, in ROUND ORDER — the earlier selves
+   * first, you last. That order is the same one `VictoryReplay` lays its
+   * recordings out in, which is what lets a key remember its carrier across the
+   * two. Before anyone's first tick, everyone is at the spawn.
+   */
+  framesAt(tick: number): Frame[] {
+    const spawn = this.spawnFrame;
+    return [
+      ...this.replays.map((r) => pastSelfFrameAt(r, tick, spawn)),
+      pastSelfFrameAt(this.currentRecording, tick, spawn),
+    ];
   }
 
   /**
@@ -51,7 +71,8 @@ export class LevelRun {
    * than working it out again and drifting from the sim.
    */
   get roomState(): RoomState {
-    return roomStateFor(this.room, this.prevStates());
+    const tick = this.tickIndex - 1;
+    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick));
   }
 
   /** Where each past self is standing right now, frozen ones included. */
@@ -64,6 +85,9 @@ export class LevelRun {
     this.tickIndex = 0;
     this.currentRecording = [];
     this.liveFrame = { x: this.room.spawn.x, y: this.room.spawn.y, down: false };
+    // Everything in the room resets too — switches back off, timers dark, keys
+    // back where they were lying, locks shut.
+    this.latches = new LatchTimeline(this.room, (t) => this.framesAt(t));
   }
 
   /** Bank the round's recording — however long it turned out to be — and roll over. */
@@ -105,6 +129,9 @@ export class LevelRun {
       this.tickIndex,
       input,
       this.room.spawn,
+      // Read as of the previous tick, like the doors: this tick's frame does
+      // not exist yet, and folding it in early is how a replay starts to drift.
+      this.latches.at(this.tickIndex - 1),
     );
     this.liveFrame = liveFrame;
     this.currentRecording.push(liveFrame);

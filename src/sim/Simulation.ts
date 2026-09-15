@@ -1,5 +1,6 @@
 import type { RoomDef } from '../content/types';
 import { moveWithCollision } from './Collision';
+import { initialLatches, type KeyState, type LatchState } from './Latches';
 import { pastSelfFrameAt } from './PastSelf';
 import type { Frame, Rect, TickInput, Vec2 } from './types';
 
@@ -11,14 +12,30 @@ function isInRect(p: { x: number; y: number }, r: Rect): boolean {
 export interface RoomState {
   heldButtons: Set<string>;
   satisfiedPlates: Set<string>;
+  /** Switches left flipped on. */
+  switchesOn: Set<string>;
+  /** Ticks of light left on each timer still counting. Not listed means shut. */
+  timersLeft: Map<string, number>;
+  /** Where every key is, and who is carrying it. */
+  keys: KeyState[];
+  locksOpen: Set<string>;
   openDoors: Set<string>;
 }
 
 /**
  * Every arrow counts the same here — live or past self — so a self that ran out
  * of recording and froze on a plate goes on weighing it down for good.
+ *
+ * Buttons and plates are read straight off where everyone is standing NOW.
+ * Switches, timers, keys and locks can't be: they depend on what happened
+ * before now, so they are folded out of the frames by `Latches.ts` and handed in
+ * here. Left out, they read as the room at the start of a round.
  */
-export function roomStateFor(room: RoomDef, states: Frame[]): RoomState {
+export function roomStateFor(
+  room: RoomDef,
+  states: Frame[],
+  latch: LatchState = initialLatches(room),
+): RoomState {
   const heldButtons = new Set<string>();
   for (const b of room.buttons) {
     if (states.some((s) => s.down && isInRect(s, b.zone))) heldButtons.add(b.id);
@@ -35,15 +52,26 @@ export function roomStateFor(room: RoomDef, states: Frame[]): RoomState {
   for (const d of room.doors) {
     const held = d.buttonIds.some((id) => heldButtons.has(id));
     const weighed = (d.plateIds ?? []).some((id) => satisfiedPlates.has(id));
-    if (held || weighed) openDoors.add(d.id);
+    const flipped = (d.switchIds ?? []).some((id) => latch.switchesOn.has(id));
+    const counting = (d.timerIds ?? []).some((id) => (latch.timersLeft.get(id) ?? 0) > 0);
+    const unlocked = (d.lockIds ?? []).some((id) => latch.locksOpen.has(id));
+    if (held || weighed || flipped || counting || unlocked) openDoors.add(d.id);
   }
 
-  return { heldButtons, satisfiedPlates, openDoors };
+  return {
+    heldButtons,
+    satisfiedPlates,
+    switchesOn: latch.switchesOn,
+    timersLeft: latch.timersLeft,
+    keys: latch.keys,
+    locksOpen: latch.locksOpen,
+    openDoors,
+  };
 }
 
 /** Which doors are open, based on where every arrow was as of the previous tick. */
-export function openDoorsFor(room: RoomDef, prevStates: Frame[]): Set<string> {
-  return roomStateFor(room, prevStates).openDoors;
+export function openDoorsFor(room: RoomDef, prevStates: Frame[], latch?: LatchState): Set<string> {
+  return roomStateFor(room, prevStates, latch).openDoors;
 }
 
 export function activeWalls(room: RoomDef, openDoorIds: Set<string>): Rect[] {
@@ -71,6 +99,10 @@ export interface TickResult {
  * Door state for THIS tick is read from the PREVIOUS tick's positions, not
  * this tick's, so an arrow can't hold a button and be already past its door
  * in the same tick — see MAX_SPEED_PER_TICK for the matching distance rule.
+ *
+ * Frames are always in ROUND ORDER — the earlier selves, then you — because a
+ * key remembers its carrier by position in that list, and the victory replay
+ * lays its recordings out the same way.
  */
 export function stepTick(
   room: RoomDef,
@@ -79,17 +111,18 @@ export function stepTick(
   tickIndex: number,
   input: TickInput,
   spawn: Vec2,
+  latch?: LatchState,
 ): TickResult {
   const spawnFrame: Frame = { x: spawn.x, y: spawn.y, down: false };
   const prevReplays = replays.map((r) => pastSelfFrameAt(r, tickIndex - 1, spawnFrame));
-  const doorsOpen = openDoorsFor(room, [prevLive, ...prevReplays]);
+  const doorsOpen = openDoorsFor(room, [...prevReplays, prevLive], latch);
   const walls = activeWalls(room, doorsOpen);
 
   const pos = moveWithCollision(prevLive, input.dx, input.dy, walls);
   const liveFrame: Frame = { x: pos.x, y: pos.y, down: input.down };
 
   const replayCurrent = replays.map((r) => pastSelfFrameAt(r, tickIndex, spawnFrame));
-  const won = reachedExit(room, [liveFrame, ...replayCurrent]);
+  const won = reachedExit(room, [...replayCurrent, liveFrame]);
 
   return { liveFrame, doorsOpen, won };
 }
