@@ -24,8 +24,16 @@ Past selves are drawn with the same arrow, faded, with a round number next to it
 - The game is a list of **levels**. Each level is one maze room with an exit.
 - Each round has its own **clock**, and **every round is longer than the last**.
   Round 1 is 5 seconds, round 2 is 10, round 3 is 15, and so on.
-- A **round** is one run of that clock. When it runs out, time goes back to 0 and
-  the next round starts. Everything in the room resets.
+- That clock is a **ceiling, not a duration**. A round ends the moment you say you
+  are done — press **space** — or when the clock runs out, whichever comes first.
+  Time goes back to 0, the next round starts, and everything in the room resets.
+- Standing about waiting for the clock is the thing the game must never make you do.
+  Space is the cure when you have finished; **hold shift** is the cure when you
+  haven't, because you are waiting for a past self to walk somewhere. Shift runs the
+  whole simulation faster — more ticks per drawn frame, never bigger ones — so the
+  recording and the time come out exactly as they would at normal speed. Your own
+  arrow speeds up with everything else, which is awkward to steer; it is meant for
+  use while parked.
 - All earlier rounds play back at the same time as you, from second 0.
 - The level is won the moment **any** arrow — you or a past self — reaches the exit.
 - Each level has a **round limit**. Run out of rounds and the level starts over
@@ -61,6 +69,11 @@ Because rounds get longer, an early self **runs out of things to do** before the
 ends. When that happens it **stops where it finished and stands there**, still doing
 whatever it was doing — if it was holding a button down, it goes on holding it. A short
 first round makes a good doorstop.
+
+Ending a round early rides on exactly that. A round you cut short at 2 seconds is a
+2-second recording, and from second 2 onwards that self is frozen — holding its button,
+weighing down its plate — for the rest of every later round. So cutting a round short
+costs you nothing except the time you didn't spend.
 
 ## First levels (to teach one thing at a time)
 
@@ -104,14 +117,24 @@ A past self is a list of what the arrow did at each game tick: where it was, and
 whether the button was down. Playback puts it exactly there — it does not replay
 raw mouse movement, so it can't drift.
 
+A recording is **as long as the round actually lasted**, not as long as its clock.
+End a round at second 2 of a 15-second clock and the recording is 2 seconds; past
+that it is the freeze above.
+
 The game runs on fixed ticks (60 a second), so the same inputs always give the same
 result. That lets the tests play a level from recordings.
+
+The simulation has **no clock of its own** — it only ever advances one fixed tick at
+a time, and is handed those ticks by the drawing loop. That is what makes fast-forward
+safe: holding shift makes the loop hand over three ticks per drawn frame instead of
+one, and a tick is a tick. A recording made hurrying and one made at normal speed
+from the same input are identical, ticks for ticks, and a test proves it.
 
 ## How it's built
 
 A brother of `cranes-game`: TypeScript + Vite, same rule.
 
-- `src/sim/` — rules: rooms, things, clock, rounds, recording and replay. No drawing, no browser. Tested.
+- `src/sim/` — rules: rooms, things, clock, rounds, recording and replay, and how many ticks a drawn frame is worth. No drawing, no browser. Tested.
 - `src/content/` — the room shapes (a straight corridor, and a maze), the level list and the hardness table.
 - `src/render/` — draws on a 2D canvas. No three.js; the game is flat.
 - `src/input/` — pointer lock, turning mouse events into moves and button presses for the sim.
@@ -120,11 +143,18 @@ A brother of `cranes-game`: TypeScript + Vite, same rule.
 
 ## Score
 
-**Fastest time.** A level's time adds up every round you played: each full clock you
-used up — and they get longer — plus how far into the last round an arrow reached the
-exit. Using fewer rounds gives a better time on its own, and it counts for more now
-that a late round costs so much. Best time per level and hardness is saved in the
-browser.
+**Fastest time.** A level's time is the time you **actually spent**: every tick of
+every round you played, added up, stopping the moment an arrow reaches the exit. A
+round you ended after 2 seconds costs 2 seconds, not its whole clock.
+
+So there are two ways to get a better time, and both are the player doing something
+rather than waiting: use fewer rounds, and finish each round sooner. Standing about
+watching a clock run down now costs exactly what it looks like it costs.
+
+Best time per level and hardness is saved in the browser. The saved-time key carries
+a version, bumped when this rule changed — times measured on full clocks can't be
+compared with times measured this way, so the old ones are left behind rather than
+sitting there unbeatable.
 
 ## Platform
 

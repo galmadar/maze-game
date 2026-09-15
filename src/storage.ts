@@ -1,7 +1,10 @@
 // Best times, unlocked levels, and the mute flag — the only bits that persist.
 import type { Hardness } from './content/hardness';
 
-const BEST_PREFIX = 'maze-run:best:';
+// v2: rounds can now end early, so a time measures ticks actually run rather than
+// clocks handed out. Old bests were measured the other way and can't be beaten —
+// a new prefix leaves them behind instead of showing them forever.
+const BEST_PREFIX = 'maze-run:best:v2:';
 const UNLOCKED_KEY = 'maze-run:unlocked';
 const MUTED_KEY = 'maze-run:muted';
 

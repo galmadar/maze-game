@@ -2,7 +2,8 @@ import { clockTicksFor, HARDNESS, roundLimitFor, type Hardness } from './content
 import { LEVELS } from './content/levels';
 import { isTouchDevice, PointerInput } from './input/PointerInput';
 import { Renderer, type DrawArrow } from './render/Renderer';
-import { LevelRun } from './sim/LevelRun';
+import { LevelRun, type TickReport } from './sim/LevelRun';
+import { FAST_FORWARD_RATE, paceFrame, TICK_SECONDS } from './sim/Pacing';
 import * as audio from './audio/Audio';
 import { getBestTime, getUnlockedCount, saveBestTime, unlockUpTo } from './storage';
 
@@ -46,6 +47,17 @@ function wireMuteButton(id: string, onToggle?: () => void): void {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'm' || e.key === 'M') audio.toggleMuted();
 });
+
+/** The three keys the game is played with, written on the paper so nobody has to be told. */
+function keyHints(): string {
+  return [
+    ['space', 'done — start the next round'],
+    ['shift', 'hold to hurry time along'],
+    ['esc', 'pause'],
+  ]
+    .map(([key, what]) => `<span><b class="key">${key}</b> ${what}</span>`)
+    .join('');
+}
 
 function showTouchBlocked(): void {
   render(`
@@ -240,12 +252,15 @@ function runLevel(
           <div class="hud-sub">round <span id="hud-round">1</span> of ${roundLimit}</div>
         </div>
         <div class="hud-clock">
-          <div class="hud-clock-head"><span>clock</span><span id="hud-time">0.00s</span></div>
+          <div class="hud-clock-head">
+            <span>clock — as long as you want it<span id="hud-ff" class="ff hidden"> · hurrying ×${FAST_FORWARD_RATE}</span></span>
+            <span id="hud-time">0.00s</span>
+          </div>
           <div class="clock-track"><div id="hud-clock-bar" class="clock-bar"></div></div>
         </div>
         <div class="hud-right">
           ${muteButtonHtml('mute-btn')}
-          <span>esc to pause</span>
+          <div class="hud-keys">${keyHints()}</div>
         </div>
       </div>
       <div class="legend">
@@ -256,6 +271,7 @@ function runLevel(
       <div id="pause-overlay" class="hidden">
         <p class="paused">Paused</p>
         <p class="note">click to carry on</p>
+        <div class="hud-keys pause-keys">${keyHints()}</div>
         <button id="quit-btn" class="boxed">back to the levels</button>
       </div>
     </div>
@@ -272,15 +288,54 @@ function runLevel(
   let prevDown = false;
   let lastTickSecond = -1;
   let stopped = false;
+  let hurrying = false;
+  let endRoundAsked = false;
 
   const input = new PointerInput(canvas, (locked) => {
     document.getElementById('pause-overlay')!.classList.toggle('hidden', locked);
+    // Let go of both keys on pause — a key held when the mouse was taken away
+    // would otherwise still be "down" when the player comes back.
+    if (!locked) {
+      hurrying = false;
+      endRoundAsked = false;
+    }
   });
-  document.getElementById('quit-btn')!.addEventListener('click', (e) => {
-    e.stopPropagation(); // don't let the overlay grab the mouse again
+
+  // Space ends the round, shift hurries the whole sim along. Space because it is
+  // the one key a hand on the mouse can hit blind; shift because it is the usual
+  // "faster" key and, unlike a letter, it does nothing on its own.
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (!input.isLocked()) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!e.repeat) endRoundAsked = true; // one press, one round — not one per repeat
+    } else if (e.key === 'Shift') {
+      hurrying = true;
+    }
+  };
+  const onKeyUp = (e: KeyboardEvent): void => {
+    if (e.key === 'Shift') hurrying = false;
+  };
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', onBlur);
+
+  function onBlur(): void {
+    hurrying = false;
+  }
+
+  function teardown(): void {
     stopped = true;
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
+    window.removeEventListener('blur', onBlur);
     input.dispose();
     renderer.dispose();
+  }
+
+  document.getElementById('quit-btn')!.addEventListener('click', (e) => {
+    e.stopPropagation(); // don't let the overlay grab the mouse again
+    teardown();
     showLevelSelect();
   });
   const takeMouse = (): void => {
@@ -294,8 +349,7 @@ function runLevel(
   // Paint once up front, so the room is on the paper before the first tick.
   renderer.draw(room, run.roomState, [{ frame: run.liveFrame, alpha: 1 }]);
 
-  const STEP = 1 / 60;
-  let acc = 0;
+  let carry = 0;
   let last = performance.now();
 
   function handleTickAudio(secondsLeft: number, requestedMove: number, actualMove: number, down: boolean): void {
@@ -312,50 +366,60 @@ function runLevel(
     if (requestedMove > 1 && actualMove < requestedMove * 0.3) audio.playWallBump();
   }
 
+  /** Round bookkeeping and sound. True when the level is over and the loop must stop. */
+  function handleRoundOver(report: TickReport): boolean {
+    if (!report.roundOver) return false;
+    if (report.won) {
+      audio.playLevelWinJingle();
+      finishWin(levelId, levelName, run.elapsedSeconds());
+      return true;
+    }
+    audio.playRoundEndWhoosh();
+    lastTickSecond = -1;
+    if (report.ranOutOfRounds) {
+      finishOutOfRounds(levelId, levelName);
+      return true;
+    }
+    audio.playRoundStart();
+    return false;
+  }
+
   function frame(now: number): void {
     if (stopped) return;
     const dt = Math.min((now - last) / 1000, 0.25);
     last = now;
-    acc += dt;
 
-    let ticks = 0;
-    while (acc >= STEP) {
-      acc -= STEP;
-      ticks++;
-    }
+    // Hurrying runs MORE ticks per animation frame, never bigger ones, so the
+    // recording and the score come out exactly as they would at normal speed.
+    const paced = paceFrame(carry, dt, hurrying ? FAST_FORWARD_RATE : 1);
+    carry = paced.carry;
 
-    if (ticks > 0 && input.isLocked()) {
+    if (paced.ticks > 0 && input.isLocked()) {
       const raw = input.consumeTick();
       // Mouse movement is screen pixels; the room is drawn scaled up to fill the window.
-      const dx = raw.dx / ticks / renderer.scale;
-      const dy = raw.dy / ticks / renderer.scale;
-      for (let i = 0; i < ticks; i++) {
+      // One reading spreads over a NORMAL frame's ticks, so a tick of input means
+      // the same thing whether or not the player is hurrying.
+      const dx = raw.dx / paced.baseTicks / renderer.scale;
+      const dy = raw.dy / paced.baseTicks / renderer.scale;
+      for (let i = 0; i < paced.ticks; i++) {
+        if (endRoundAsked) {
+          endRoundAsked = false;
+          if (handleRoundOver(run.endRound())) return;
+          continue; // the rest of this frame's ticks belong to the new round
+        }
         const before = run.liveFrame;
         const report = run.tick({ dx, dy, down: raw.down });
         const actualMove = Math.hypot(report.frame.x - before.x, report.frame.y - before.y);
         const requestedMove = Math.hypot(dx, dy);
-        const secondsLeft = (run.clockTicks - run.tickIndex) / 60;
+        const secondsLeft = (run.clockTicks - run.tickIndex) * TICK_SECONDS;
         handleTickAudio(secondsLeft, requestedMove, actualMove, report.frame.down);
-
-        if (report.roundOver) {
-          if (report.won) {
-            audio.playLevelWinJingle();
-            finishWin(levelId, levelName, run.elapsedSeconds());
-            return;
-          }
-          audio.playRoundEndWhoosh();
-          lastTickSecond = -1;
-          if (report.ranOutOfRounds) {
-            finishOutOfRounds(levelId, levelName);
-            return;
-          }
-          audio.playRoundStart();
-        }
+        if (handleRoundOver(report)) return;
       }
     }
 
     document.getElementById('hud-round')!.textContent = String(run.round);
     document.getElementById('hud-time')!.textContent = `${run.elapsedSeconds().toFixed(2)}s`;
+    document.getElementById('hud-ff')!.classList.toggle('hidden', !hurrying);
     const pct = Math.max(0, 100 - (run.tickIndex / run.clockTicks) * 100);
     document.getElementById('hud-clock-bar')!.style.width = `${pct}%`;
 
@@ -371,9 +435,7 @@ function runLevel(
   }
 
   function finishWin(id: string, name: string, seconds: number): void {
-    stopped = true;
-    input.dispose();
-    renderer.dispose();
+    teardown();
     const best = saveBestTime(id, hardness, seconds);
     const idx = LEVELS.findIndex((l) => l.id === id);
     unlockUpTo(idx + 2);
@@ -397,9 +459,7 @@ function runLevel(
   }
 
   function finishOutOfRounds(id: string, name: string): void {
-    stopped = true;
-    input.dispose();
-    renderer.dispose();
+    teardown();
     render(`
       <div class="sheet">
         <div class="start-body">
