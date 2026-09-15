@@ -130,6 +130,29 @@ safe: holding shift makes the loop hand over three ticks per drawn frame instead
 one, and a tick is a tick. A recording made hurrying and one made at normal speed
 from the same input are identical, ticks for ticks, and a test proves it.
 
+## Winning: the run, played back
+
+The premise is that you beat a level **as a crowd**, and while you are playing you
+never get to see it — you are busy being one of them. So the moment you win, the
+whole run plays again on the same sheet: every round you recorded, plus the round
+that got out, all moving at once from second 0. Doors swing as they are held, plates
+go green as selves stand on them, and the winning arrow reaches the way out. Then it
+waits a beat on that frame and **starts again from zero**, looping until you press a
+button.
+
+It is **your run and nothing else**. Nothing is worked out or made up for it: every
+arrow, the winning one included, is a recording being read back, exactly the way a
+past self is read back in play. The room is asked of the simulation from those same
+frames, so there is only ever one answer to "is this door open" — a door drawn open
+in the replay is a door that really was open.
+
+The result — the time, and your best — is written in the margins, above and below,
+so it reads as a caption and never covers the maze. The buttons (next, again, the
+levels) sit in the bottom margin beside it, and pressing any of them stops the loop.
+
+The waiting beat between loops is counted in **sim ticks**, like everything else, so
+there is no second clock anywhere in the game.
+
 ## How it's built
 
 A brother of `cranes-game`: TypeScript + Vite, same rule.

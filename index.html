@@ -170,6 +170,17 @@
       .legend span { display: flex; align-items: center; gap: 9px; }
       #pause-overlay { position: absolute; inset: 0; background: rgba(245, 236, 217, 0.86); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; z-index: 3; }
       #pause-overlay .paused { font-family: var(--caveat); font-weight: 700; font-size: clamp(30px, 4vw, 56px); }
+
+      /* ---- the win, replayed: writing in the margins, maze in the middle ---- */
+      .win-score { text-align: right; }
+      .win-time { font-family: var(--caveat); font-weight: 700; font-size: clamp(26px, 3vw, 44px); line-height: 1; color: var(--green); }
+      .win-foot {
+        position: absolute; left: clamp(20px, 4vw, 64px); right: clamp(20px, 4vw, 64px); bottom: clamp(14px, 3vh, 26px);
+        display: flex; align-items: center; justify-content: space-between; gap: clamp(16px, 3vw, 40px);
+        flex-wrap: wrap; z-index: 3;
+      }
+      .legend-inline { display: flex; align-items: center; gap: 26px; font-size: clamp(14px, 1.4vw, 19px); color: #7d7259; }
+      .legend-inline span { display: flex; align-items: center; gap: 9px; }
     </style>
   </head>
   <body>

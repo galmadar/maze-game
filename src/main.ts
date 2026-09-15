@@ -1,9 +1,12 @@
 import { clockTicksFor, HARDNESS, roundLimitFor, type Hardness } from './content/hardness';
 import { LEVELS } from './content/levels';
+import type { RoomDef } from './content/types';
 import { isTouchDevice, PointerInput } from './input/PointerInput';
 import { Renderer, type DrawArrow } from './render/Renderer';
 import { LevelRun, type TickReport } from './sim/LevelRun';
 import { FAST_FORWARD_RATE, paceFrame, TICK_SECONDS } from './sim/Pacing';
+import type { Frame } from './sim/types';
+import { VictoryReplay } from './sim/VictoryReplay';
 import * as audio from './audio/Audio';
 import { getBestTime, getUnlockedCount, saveBestTime, unlockUpTo } from './storage';
 
@@ -439,23 +442,17 @@ function runLevel(
     const best = saveBestTime(id, hardness, seconds);
     const idx = LEVELS.findIndex((l) => l.id === id);
     unlockUpTo(idx + 2);
-    render(`
-      <div class="sheet">
-        <div class="start-body">
-          <h1>${name} — out!</h1>
-          <p class="lead" style="margin-top: 20px;">${seconds.toFixed(2)} seconds.</p>
-          <p class="note">best so far ${best.toFixed(2)}s</p>
-          <div class="row" style="margin-top: 36px;">
-            ${idx + 1 < LEVELS.length ? '<button id="next-btn" class="primary">Next →</button>' : ''}
-            <button id="retry-btn" class="boxed">again</button>
-            <button id="select-btn" class="boxed">the levels</button>
-          </div>
-        </div>
-      </div>
-    `);
-    document.getElementById('retry-btn')!.addEventListener('click', () => startLevel(id));
-    document.getElementById('select-btn')!.addEventListener('click', showLevelSelect);
-    document.getElementById('next-btn')?.addEventListener('click', () => startLevel(LEVELS[idx + 1].id));
+    // The winning round is still sitting in currentRecording — it never became a
+    // replay, because the level ended before the round could roll over.
+    showVictoryReplay({
+      levelId: id,
+      levelIndex: idx,
+      name,
+      room,
+      recordings: [...run.replays, run.currentRecording],
+      seconds,
+      best,
+    });
   }
 
   function finishOutOfRounds(id: string, name: string): void {
@@ -477,6 +474,115 @@ function runLevel(
   }
 
   requestAnimationFrame(frame);
+}
+
+interface WinScreen {
+  levelId: string;
+  levelIndex: number;
+  name: string;
+  room: RoomDef;
+  /** Every round of the run, oldest first; the last one is the round that got out. */
+  recordings: Frame[][];
+  seconds: number;
+  best: number;
+}
+
+/**
+ * The payoff. The premise of the game is that you beat it as a crowd, and until
+ * this screen the player never gets to watch the crowd do it — during play they
+ * are busy being one of them. So the whole run plays again, every self at once,
+ * looping until a button is pressed.
+ *
+ * The room comes from `VictoryReplay.roomState`, which is the sim's own answer:
+ * a door drawn open here is a door that really was open.
+ */
+function showVictoryReplay(win: WinScreen): void {
+  const hasNext = win.levelIndex + 1 < LEVELS.length;
+  // The writing lives in the margins, top and bottom, and the room is fitted
+  // between them — the replay is the point, the words are the caption.
+  render(`
+    <div id="game-wrap">
+      <canvas id="canvas"></canvas>
+      <div id="hud-top">
+        <div>
+          <div class="hud-title">${win.name} — out!</div>
+          <div class="hud-sub">everyone you were, all at once — over and over</div>
+        </div>
+        <div class="win-score">
+          <div class="win-time">${win.seconds.toFixed(2)}s</div>
+          <div class="hud-sub">best so far ${win.best.toFixed(2)}s</div>
+        </div>
+      </div>
+      <div class="win-foot">
+        <div class="legend-inline">
+          <span>${arrowGlyph('#2f3b4a')} the round that got out</span>
+          <span>${arrowGlyph('#5a6675', 0.45)} the ones before</span>
+        </div>
+        <div class="row">
+          ${hasNext ? '<button id="next-btn" class="primary">Next →</button>' : ''}
+          <button id="retry-btn" class="boxed">again</button>
+          <button id="select-btn" class="boxed">the levels</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+  const renderer = new Renderer(canvas, {
+    top: document.getElementById('hud-top'),
+    bottom: document.querySelector<HTMLElement>('.win-foot'),
+  });
+  const replay = new VictoryReplay(win.room, win.recordings);
+
+  let raf = 0;
+  let stopped = false;
+  let carry = 0;
+  let last = performance.now();
+
+  // The only thing left running is the animation frame — the beat between loops
+  // is counted in sim ticks, so there is no timer to forget about either.
+  function stop(): void {
+    stopped = true;
+    cancelAnimationFrame(raf);
+    renderer.dispose();
+  }
+
+  function leave(go: () => void): (e: Event) => void {
+    return (e) => {
+      e.stopPropagation();
+      stop();
+      go();
+    };
+  }
+
+  document.getElementById('retry-btn')!.addEventListener('click', leave(() => startLevel(win.levelId)));
+  document.getElementById('select-btn')!.addEventListener('click', leave(showLevelSelect));
+  document
+    .getElementById('next-btn')
+    ?.addEventListener('click', leave(() => startLevel(LEVELS[win.levelIndex + 1].id)));
+
+  function drawReplay(): void {
+    // Same arrows as in play: the round that got out is drawn as "you", last so
+    // it sits on top; the earlier rounds are the faded, numbered past selves.
+    const arrows: DrawArrow[] = replay
+      .frames()
+      .map((frame, i) => (i === replay.winnerIndex ? { frame, alpha: 1 } : { frame, label: String(i + 1), alpha: 0.45 }));
+    renderer.draw(win.room, replay.roomState, arrows);
+  }
+
+  function frame(now: number): void {
+    if (stopped) return;
+    const dt = Math.min((now - last) / 1000, 0.25);
+    last = now;
+    const paced = paceFrame(carry, dt);
+    carry = paced.carry;
+    for (let i = 0; i < paced.ticks; i++) replay.advance();
+    drawReplay();
+    raf = requestAnimationFrame(frame);
+  }
+
+  drawReplay();
+  raf = requestAnimationFrame(frame);
 }
 
 if (isTouchDevice()) {
