@@ -1,10 +1,13 @@
 import type { Rect, Vec2 } from './types';
 
 export const ARROW_RADIUS = 10;
-// Caps how far the arrow can move in one tick — without this, a single fast
-// mouse-move tick could cross a "held open for one tick" door, breaking the
-// round-count puzzles (see levels.ts comment on Relay's minRounds).
-export const MAX_SPEED_PER_TICK = 22;
+// A safety limit in ROOM units, not a speed limit on the player's hand — how
+// fast the arrow feels is capped in screen pixels where the mouse is read
+// (MAX_SCREEN_SPEED_PER_TICK). 80 is under the tightest gap in the game between
+// a button and the far side of its door (94, Relay on easy), so one tick can
+// still never open a door and be through it; it is also the thinnest wall a
+// maze builds (easy's edge*2). Tunnelling itself is stopped by sweeping.
+export const MAX_SPEED_PER_TICK = 80;
 
 function clampVector(dx: number, dy: number, max: number): Vec2 {
   const len = Math.hypot(dx, dy);
