@@ -512,7 +512,7 @@ function walkToward(run: LevelRun, target: Vec2, down: boolean, onTick?: () => v
     if (dist < closest - 0.5) {
       closest = dist;
       stale = 0;
-    } else if (++stale > 240) {
+    } else if (++stale > 120) {
       return 'stuck'; // a door that never opened
     }
     const scale = Math.min(1, SPEED / dist);
@@ -674,6 +674,166 @@ const SCRIPTS: Record<string, Script> = {
       { go: ['3,1', '4,1'] },
       { untilOpen: 'door2' },
       { go: ['5,1'] },
+    ],
+  },
+
+  // Round 1 takes the long way to the switch so that nobody has to stand on the
+  // button, then doubles back and joins the plate. Rounds 2 and 3 walk straight.
+  'either-way': {
+    setup: [
+      [
+        { go: ['0,2', '0,3', '1,3'] },
+        { click: 1 },
+        { go: ['0,3', '0,2', '0,1', '1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1', '3,0'] },
+      ],
+      [{ go: ['1,1'] }, { untilOpen: 'door1' }, { go: ['2,1', '3,1', '3,0'] }],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+    ],
+  },
+
+  // Two rounds stand on the plate. Only then is there a way through to the key.
+  'two-to-fetch': {
+    setup: [[{ go: ['1,1', '1,2', '2,2'] }], [{ go: ['1,1', '1,2', '2,2'] }]],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '3,2'] },
+      { click: 1 },
+      { go: ['3,1', '4,1', '4,0'] },
+      { untilOpen: 'door2' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // Round 1 flips the switch on its way past. Round 2 walks over the very same
+  // square and does NOT click — that is the level.
+  'only-one-of-you': {
+    setup: [
+      [{ go: ['1,1'] }, { click: 1 }, { go: ['2,1', '2,0'] }],
+      [{ go: ['1,1'] }, { untilOpen: 'door1' }, { go: ['2,1', '2,0'] }],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+    ],
+  },
+
+  // One click picks the key up and opens the door in the same tick. Round 1 runs
+  // the key to the lock and then joins the plate; rounds 2 and 3 follow.
+  'two-at-once': {
+    setup: [
+      [
+        { go: ['1,1', '1,0'] },
+        { click: 1 },
+        { go: ['1,1', '2,1'] },
+        { untilOpen: 'door1' },
+        { go: ['3,1', '3,0'] },
+        { go: ['3,1', '4,1', '4,2'] },
+      ],
+      [{ go: ['1,1', '2,1'] }, { untilOpen: 'door1' }, { go: ['3,1', '4,1', '4,2'] }],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+      { untilOpen: 'door3' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // Round 1 walks the long arm and clicks the pad, empty-handed — it has to be,
+  // because a hand with a key in it cannot click. Round 2 carries the key
+  // through and cannot get back out. Round 3 leaves by the door the lock opened.
+  'hands-full': {
+    setup: [
+      [{ go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] }, { click: 1 }],
+      [
+        { go: ['0,1'] },
+        { click: 1 },
+        { go: ['0,2', '1,2', '2,2', '3,2'] },
+        { untilOpen: 'door1' },
+        { go: ['4,2', '5,2', '6,2', '6,3', '5,3', '4,3', '3,3'] },
+      ],
+    ],
+    win: [{ go: ['0,1', '0,2', '0,3', '0,4', '1,4'] }, { untilOpen: 'door2' }, { go: ['2,4'] }],
+    // Sixteen cells back from the pad to its door, and a second and a half of light.
+    solo: [
+      { go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] },
+      { click: 1 },
+      { go: ['3,1', '4,1', '5,1', '6,1', '6,0', '5,0', '4,0', '3,0', '2,0', '1,0', '0,0'] },
+      { go: ['0,1', '0,2', '1,2', '2,2', '3,2'] },
+      { go: ['4,2'] },
+    ],
+  },
+
+  // Round 1 clicks the first pad. Round 2 waits at the first door, gets through,
+  // and clicks the second pad from inside. Round 3 waits at the second door.
+  chain: {
+    setup: [
+      [{ go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] }, { click: 1 }],
+      [
+        { go: ['1,0', '2,0'] },
+        { untilOpen: 'door1' },
+        { go: ['3,0', '4,0', '5,0', '6,0', '6,1'] },
+        { click: 1 },
+      ],
+    ],
+    win: [{ go: ['1,0', '1,1', '1,2'] }, { untilOpen: 'door2' }, { go: ['2,2'] }],
+    // Nine cells from the first pad back to its door, and one second of light.
+    solo: [
+      { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] },
+      { click: 1 },
+      { go: ['3,3', '2,3', '1,3', '0,3', '0,2', '0,1', '0,0', '1,0', '2,0'] },
+      { go: ['3,0'] },
+    ],
+  },
+
+  // Round 1 does the whole key run: first key to its lock, put it down, second
+  // key to its lock, then stand on the plate. Rounds 2 and 3 walk it.
+  'two-keys': {
+    setup: [
+      [
+        { go: ['1,0'] },
+        { click: 1 },
+        { go: ['1,1', '0,1'] },
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1'] },
+        { click: 1 }, // the first key goes on the floor — a hand holds one
+        { go: ['2,0'] },
+        { click: 1 },
+        { go: ['2,1', '2,2'] },
+        { go: ['2,1'] },
+        { untilOpen: 'door2' },
+        { go: ['3,1', '3,0'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['2,1'] },
+        { untilOpen: 'door2' },
+        { go: ['3,1', '3,0'] },
+      ],
+    ],
+    win: [
+      { untilOpen: 'door1' },
+      { go: ['2,1'] },
+      { untilOpen: 'door2' },
+      { go: ['3,1'] },
+      { untilOpen: 'door3' },
+      { go: ['4,1'] },
     ],
   },
 };
@@ -845,6 +1005,90 @@ describe('the switch levels still punish a second click', () => {
     expect(run.roomState.openDoors.has('door')).toBe(false);
     walk(run, ['3,3']);
     expect(run.won).toBe(false);
+  });
+});
+
+// These are the rules the new levels are BUILT on. If any of them stopped
+// biting, the level above it would still be winnable — just not a puzzle.
+describe('the rules the new levels lean on really do bite', () => {
+  const hardness = HARDNESS.medium;
+
+  function fresh(id: string, roundLimit = 6): LevelRun {
+    const def = level(id);
+    return new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), roundLimit);
+  }
+
+  it('only-one-of-you: a second self clicking the switch shuts the door on the third', () => {
+    const run = fresh('only-one-of-you');
+
+    // Round 1 flips it and goes on to the plate, the right way round.
+    playSteps(run, [{ go: ['1,1'] }, { click: 1 }, { untilOpen: 'door1' }, { go: ['2,1', '2,0'] }]);
+    run.endRound();
+    // Round 2 cannot resist flipping it too — and shuts itself out.
+    playSteps(run, [{ go: ['1,1'] }, { wait: 30 }, { click: 1 }]);
+    run.endRound();
+    expect(run.round).toBe(3);
+
+    // Two clicks, so by the time both have happened the switch is back off.
+    playSteps(run, [{ go: ['1,1'] }, { wait: 60 }]);
+    expect(run.roomState.switchesOn.has('flip')).toBe(false);
+    expect(run.roomState.openDoors.has('door1')).toBe(false);
+    expect(playSteps(run, [{ go: ['2,1', '3,1', '4,1', '5,1'] }])).toBe(false);
+    expect(run.won).toBe(false);
+  });
+
+  it('two-at-once: one click picks the key up AND flips the switch under it', () => {
+    const run = fresh('two-at-once');
+    playSteps(run, [{ go: ['1,1', '1,0'] }, { click: 1 }]);
+
+    const state = run.roomState;
+    expect(state.switchesOn.has('flip')).toBe(true);
+    expect(state.keys[0].carrier).toBe(0); // in the live self's hand
+    expect(state.openDoors.has('door1')).toBe(true);
+  });
+
+  it('two-keys: a hand holds one key, so clicking by the second one puts the first down', () => {
+    const run = fresh('two-keys');
+    playSteps(run, [
+      { go: ['1,0'] },
+      { click: 1 },
+      { go: ['1,1', '0,1'] },
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '2,0'] },
+      { click: 1 }, // standing right on top of key2, with key1 still in hand
+    ]);
+
+    const keys = Object.fromEntries(run.roomState.keys.map((k) => [k.id, k.carrier]));
+    expect(keys).toEqual({ key1: null, key2: null }); // it let go rather than taking both
+  });
+
+  it('hands-full: a self carrying the key cannot click the pad without dropping it', () => {
+    const run = fresh('hands-full');
+    playSteps(run, [
+      { go: ['0,1'] },
+      { click: 1 },
+      { go: ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] },
+    ]);
+    expect(run.roomState.keys[0].carrier).toBe(0);
+
+    playSteps(run, [{ click: 1 }]);
+    expect(run.roomState.keys[0].carrier).toBeNull(); // the pad click cost it the key
+    expect(run.roomState.timersLeft.get('pad')).toBeGreaterThan(0);
+  });
+
+  it('two-keys: the second lock will not take the first key', () => {
+    const run = fresh('two-keys');
+    playSteps(run, [
+      { go: ['1,0'] },
+      { click: 1 },
+      { go: ['1,1', '0,1'] },
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '2,2'] }, // key1, carried onto lock2
+    ]);
+    expect(run.roomState.locksOpen.has('lock1')).toBe(true);
+    expect(run.roomState.locksOpen.has('lock2')).toBe(false);
   });
 });
 
