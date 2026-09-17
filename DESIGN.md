@@ -130,12 +130,9 @@ width from the hardness table is how wide their passages are.
 3. **Relay** — three doors in a row, each button behind the last door. 4 rounds.
 4. **Heavy** — a maze with a 2-arrow weight plate down a dead end. Two of you stand on
    it, the third walks out. 3 rounds.
-5. **Hold and stand** — the plate is behind a held door, so the hold has to come first.
-   One holds, two stand, one walks out. 4 rounds.
-6. **Three of you** — same idea, one heavier: the plate wants three. 4 rounds.
-7. **Dead ends** — two plates, one behind the other, in a maze full of wrong turns.
+5. **Dead ends** — two plates, one behind the other, in a maze full of wrong turns.
    5 rounds.
-8. **The crowd** — a 2-plate opens the way to a 3-plate. Everyone you have. 6 rounds.
+6. **The crowd** — a 2-plate opens the way to a 3-plate. Everyone you have. 6 rounds.
 
 Each level's **minimum rounds** is the fewest it can actually be beaten in; the round
 limit adds the hardness table's spare rounds on top. Hard gives none, so on hard every

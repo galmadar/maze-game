@@ -29,63 +29,6 @@ const HEAVY: MazeSpec = {
   doors: [{ id: 'door', at: '4,1-5,1', openedBy: ['plate'] }],
 };
 
-const HOLD_AND_STAND: MazeSpec = {
-  cols: 6,
-  rows: 4,
-  spawn: '0,0',
-  exit: '5,3',
-  links: [
-    '0,0-1,0',
-    '1,0-2,0',
-    '0,0-0,1', // down to the hold button
-    '0,1-1,1',
-    '0,1-0,2', // dead end
-    '0,2-0,3',
-    '0,3-1,3',
-    // ---- everything below here is behind the held door ----
-    '3,0-4,0',
-    '4,0-5,0', // dead end
-    '4,0-4,1',
-    '4,1-4,2',
-    '4,2-4,3',
-    '3,0-3,1', // dead end
-    '3,1-3,2',
-    '3,2-2,2',
-    '4,2-3,2',
-  ],
-  buttons: [{ id: 'btn', at: '1,1' }],
-  plates: [{ id: 'plate', at: '4,0', needs: 2 }],
-  doors: [
-    { id: 'held', at: '2,0-3,0', openedBy: ['btn'] },
-    { id: 'heavy', at: '4,3-5,3', openedBy: ['plate'] },
-  ],
-};
-
-const THREE_OF_YOU: MazeSpec = {
-  cols: 7,
-  rows: 3,
-  spawn: '0,1',
-  exit: '6,1',
-  links: [
-    '0,1-1,1',
-    '1,1-2,1',
-    '2,1-3,1',
-    '3,1-4,1',
-    '4,1-5,1',
-    '2,1-2,2', // down to the plate
-    '0,1-0,0', // dead end
-    '0,1-0,2', // dead end
-    '0,2-1,2',
-    '1,1-1,0', // dead end
-    '3,1-3,0',
-    '3,0-4,0', // dead end
-    '4,1-4,2',
-    '4,2-5,2', // dead end
-  ],
-  plates: [{ id: 'plate', at: '2,2', needs: 3 }],
-  doors: [{ id: 'door', at: '5,1-6,1', openedBy: ['plate'] }],
-};
-
 const DEAD_ENDS: MazeSpec = {
   cols: 7,
   rows: 4,
@@ -284,22 +227,6 @@ export const LEVELS: LevelDef[] = [
     name: 'Heavy',
     minRounds: 3,
     build: (cw) => mazeRoom(cw, HEAVY),
-  },
-  {
-    // The plate is behind a held door, so the hold has to come first: round 1
-    // holds the button forever, rounds 2 and 3 walk through and stand on the
-    // plate, round 4 walks out.
-    id: 'hold-and-stand',
-    name: 'Hold and stand',
-    minRounds: 4,
-    build: (cw) => mazeRoom(cw, HOLD_AND_STAND),
-  },
-  {
-    // Same shape as Heavy, one heavier: the plate wants three.
-    id: 'three-of-you',
-    name: 'Three of you',
-    minRounds: 4,
-    build: (cw) => mazeRoom(cw, THREE_OF_YOU),
   },
   {
     // Two plates, one behind the other: two rounds for the first, two for the

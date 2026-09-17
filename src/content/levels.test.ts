@@ -145,7 +145,7 @@ describe('Relay — level solvable with scripted rounds', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Levels 4-8: real maze rooms, and the weight plate.
+// The plate levels: real maze rooms, and the weight plate.
 // ---------------------------------------------------------------------------
 
 /** Walk to a point in a straight line, never overshooting it. */
@@ -189,22 +189,6 @@ const PLANS: Record<string, Plan> = {
     setup: [{ path: ['1,1', '1,0', '2,0'] }, { path: ['1,1', '1,0', '2,0'] }],
     win: ['1,1', '2,1', '3,1', '4,1', '5,1'],
   },
-  'hold-and-stand': {
-    setup: [
-      { path: ['0,1', '1,1'], hold: true }, // round 1 holds the door open for good
-      { path: ['1,0', '2,0', '3,0', '4,0'] },
-      { path: ['1,0', '2,0', '3,0', '4,0'] },
-    ],
-    win: ['1,0', '2,0', '3,0', '4,0', '4,1', '4,2', '4,3', '5,3'],
-  },
-  'three-of-you': {
-    setup: [
-      { path: ['1,1', '2,1', '2,2'] },
-      { path: ['1,1', '2,1', '2,2'] },
-      { path: ['1,1', '2,1', '2,2'] },
-    ],
-    win: ['1,1', '2,1', '3,1', '4,1', '5,1', '6,1'],
-  },
   'dead-ends': {
     setup: [
       { path: ['0,1', '1,1', '1,2'] },
@@ -226,7 +210,7 @@ const PLANS: Record<string, Plan> = {
   },
 };
 
-describe('Levels 4-8 — every one beatable in the rounds it claims', () => {
+describe('The plate levels — every one beatable in the rounds it claims', () => {
   for (const [id, plan] of Object.entries(PLANS)) {
     const def = level(id);
 
@@ -258,7 +242,7 @@ describe('Levels 4-8 — every one beatable in the rounds it claims', () => {
   }
 });
 
-describe('Levels 4-8 — one round short is not enough', () => {
+describe('The plate levels — one round short is not enough', () => {
   // The honest half of minRounds: play every setup round but the last, then try
   // to walk out anyway. The last door should still be shut.
   const hardness = HARDNESS.medium;
