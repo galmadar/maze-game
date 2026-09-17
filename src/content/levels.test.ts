@@ -145,7 +145,7 @@ describe('Relay — level solvable with scripted rounds', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Levels 4-8: real maze rooms, and the weight plate.
+// The plate levels: real maze rooms, and the weight plate.
 // ---------------------------------------------------------------------------
 
 /** Walk to a point in a straight line, never overshooting it. */
@@ -189,22 +189,6 @@ const PLANS: Record<string, Plan> = {
     setup: [{ path: ['1,1', '1,0', '2,0'] }, { path: ['1,1', '1,0', '2,0'] }],
     win: ['1,1', '2,1', '3,1', '4,1', '5,1'],
   },
-  'hold-and-stand': {
-    setup: [
-      { path: ['0,1', '1,1'], hold: true }, // round 1 holds the door open for good
-      { path: ['1,0', '2,0', '3,0', '4,0'] },
-      { path: ['1,0', '2,0', '3,0', '4,0'] },
-    ],
-    win: ['1,0', '2,0', '3,0', '4,0', '4,1', '4,2', '4,3', '5,3'],
-  },
-  'three-of-you': {
-    setup: [
-      { path: ['1,1', '2,1', '2,2'] },
-      { path: ['1,1', '2,1', '2,2'] },
-      { path: ['1,1', '2,1', '2,2'] },
-    ],
-    win: ['1,1', '2,1', '3,1', '4,1', '5,1', '6,1'],
-  },
   'dead-ends': {
     setup: [
       { path: ['0,1', '1,1', '1,2'] },
@@ -226,7 +210,7 @@ const PLANS: Record<string, Plan> = {
   },
 };
 
-describe('Levels 4-8 — every one beatable in the rounds it claims', () => {
+describe('The plate levels — every one beatable in the rounds it claims', () => {
   for (const [id, plan] of Object.entries(PLANS)) {
     const def = level(id);
 
@@ -258,7 +242,7 @@ describe('Levels 4-8 — every one beatable in the rounds it claims', () => {
   }
 });
 
-describe('Levels 4-8 — one round short is not enough', () => {
+describe('The plate levels — one round short is not enough', () => {
   // The honest half of minRounds: play every setup round but the last, then try
   // to walk out anyway. The last door should still be shut.
   const hardness = HARDNESS.medium;
@@ -475,99 +459,683 @@ describe('every level with a door — the way out really is behind it', () => {
 });
 
 // ---------------------------------------------------------------------------
-// One small room each for the newer things: a switch that stays flipped, a door
-// on a timer, a key you carry to a lock. Enough to prove each one is playable —
-// not the levels that will teach them.
+// The levels that teach the switch, the timer and the key — and then cross them
+// with each other and with the plate.
+//
+// Every one of them is played here by a SCRIPT: a list of setup rounds, then
+// the round that wins. A round is a list of steps, because these levels need
+// more than a path — a click on a switch, a press that stays pressed, a wait
+// at a door until a past self's click opens it.
+//
+// Three things are checked for every script, on every hardness: the level is
+// won in exactly the rounds it claims; no setup round runs out of clock on the
+// way; and one round short of the claim it cannot be won at all.
 // ---------------------------------------------------------------------------
 
-/** One click: press, then let go. */
-function clickOnce(run: LevelRun, beforeTick?: () => void): void {
-  for (const down of [true, false]) {
-    beforeTick?.();
-    run.tick({ dx: 0, dy: 0, down });
-  }
+type Step =
+  /** Walk through these cells, in order. */
+  | { go: string[] }
+  /** Press and let go, n times — a switch, a timer pad, a key picked up or put down. */
+  | { click: number }
+  /** Press and keep it pressed for the rest of the round — a hold button. */
+  | { press: true }
+  /** Stand still until that door is open. */
+  | { untilOpen: string }
+  /** Stand still for this many ticks. */
+  | { wait: number };
+
+interface Script {
+  setup: Step[][];
+  win: Step[];
+  /**
+   * For the timer levels: one self trying to do the whole job alone, at full
+   * speed, in round 1. Played on easy, where the clock is never what stops it —
+   * so if this fails to win, the distance from the pad to its door is the
+   * reason, which is exactly the claim `minRounds` makes.
+   */
+  solo?: Step[];
 }
 
-/** Stand still until the room does something. */
-function waitFor(run: LevelRun, ready: () => boolean, beforeTick?: () => void): void {
-  for (let guard = 0; guard < 3000; guard++) {
-    if (ready()) return;
-    beforeTick?.();
-    if (run.tick({ dx: 0, dy: 0, down: false }).roundOver) return;
+/**
+ * Walk toward a point. Unlike `walkTo` above this gives up instead of throwing
+ * when a shut door is in the way — the "one round short" test needs to try a
+ * route that does not work and be told so.
+ */
+function walkToward(run: LevelRun, target: Vec2, down: boolean, onTick?: () => void): 'there' | 'stuck' {
+  let closest = Infinity;
+  let stale = 0;
+  for (let guard = 0; guard < 4000; guard++) {
+    const dx = target.x - run.liveFrame.x;
+    const dy = target.y - run.liveFrame.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.01) return 'there';
+    if (dist < closest - 0.5) {
+      closest = dist;
+      stale = 0;
+    } else if (++stale > 120) {
+      return 'stuck'; // a door that never opened
+    }
+    const scale = Math.min(1, SPEED / dist);
+    onTick?.();
+    run.tick({ dx: dx * scale, dy: dy * scale, down });
+    if (run.won || run.tickIndex === 0) return 'stuck'; // won, or the round rolled over
   }
-  throw new Error('waited for something that never happened');
+  return 'stuck';
 }
 
-/** The long way round to the timer pad, and the long way round to the door it opens. */
+/**
+ * Play one round's steps. Returns false if the round could not be played out —
+ * the clock ran out, or a door the script waited on never opened.
+ */
+function playSteps(run: LevelRun, steps: Step[], onTick?: () => void): boolean {
+  let down = false;
+  const tick = (isDown: boolean): boolean => {
+    onTick?.();
+    run.tick({ dx: 0, dy: 0, down: isDown });
+    return !run.won && run.tickIndex > 0;
+  };
+
+  for (const step of steps) {
+    if ('go' in step) {
+      for (const ref of step.go) {
+        const [c, r] = ref.split(',').map(Number);
+        if (walkToward(run, cellCenter(c, r), down, onTick) === 'stuck') return false;
+      }
+    } else if ('click' in step) {
+      for (let i = 0; i < step.click; i++) {
+        if (!tick(true) || !tick(false)) return false;
+      }
+      down = false;
+    } else if ('press' in step) {
+      if (!tick(true)) return false;
+      down = true;
+    } else if ('untilOpen' in step) {
+      let open = false;
+      for (let guard = 0; guard < 2000 && !open; guard++) {
+        if (run.roomState.openDoors.has(step.untilOpen)) open = true;
+        else if (!tick(down)) return false;
+      }
+      if (!open) return false;
+    } else {
+      for (let i = 0; i < step.wait; i++) if (!tick(down)) return false;
+    }
+  }
+  return true;
+}
+
+/** The long way round to In a hurry's timer pad, and the long way to its door. */
 const TO_THE_PAD = ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1', '1,1'];
 const TO_THE_DOOR = ['0,1', '0,2', '1,2', '2,2', '3,2', '4,2', '5,2', '6,2', '6,3', '5,3', '4,3'];
 
-/** Play one of the three to its win, keeping the room play showed on every tick of the last round. */
-function playNewLevel(id: string, hardness: (typeof HARDNESS)[keyof typeof HARDNESS]): PlayedRun {
+const SCRIPTS: Record<string, Script> = {
+  // Down the pocket, flip the switch, and stroll back out through the door it
+  // left open. Nobody is parked anywhere.
+  'flip-it': {
+    setup: [],
+    win: [{ go: ['1,1', '1,0', '2,0'] }, { click: 1 }, { go: ['1,0', '1,1', '2,1', '3,1'] }],
+  },
+
+  // Take the key out of its pocket, walk it round to the lock, walk out.
+  'carry-it': {
+    setup: [],
+    win: [
+      { go: ['1,1', '1,0'] },
+      { click: 1 },
+      { go: ['1,1', '2,1', '2,2', '3,2'] },
+      { go: ['2,2', '2,1', '3,1', '4,1'] },
+    ],
+  },
+
+  // Round 1 walks the long arm and clicks the pad. Round 2 is already standing
+  // at the door, a whole room away, when that click happens again.
+  'in-a-hurry': {
+    setup: [[{ go: TO_THE_PAD }, { click: 1 }]],
+    win: [{ go: TO_THE_DOOR }, { untilOpen: 'door' }, { go: ['3,3'] }],
+  },
+
+  // Round 1 flips the switch, goes through the door it opened, and stays on the
+  // button behind it. Round 2 walks the whole way out.
+  'two-jobs': {
+    setup: [
+      [
+        { go: ['1,1', '1,0', '2,0'] },
+        { click: 1 },
+        { go: ['1,0', '1,1', '2,1'] },
+        { untilOpen: 'door1' },
+        { go: ['3,1', '3,0'] },
+        { press: true },
+      ],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '3,2'] },
+      { untilOpen: 'door2' },
+      { go: ['4,2'] },
+    ],
+  },
+
+  // Round 1 walks all the way round to the pad and clicks. Round 2 is waiting at
+  // the door: in, key, and out again inside the second and a half.
+  'in-and-out': {
+    setup: [[{ go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3', '5,3'] }, { click: 1 }]],
+    win: [
+      { go: ['1,0', '2,0', '3,0'] },
+      { untilOpen: 'door1' },
+      { go: ['4,0', '5,0'] },
+      { click: 1 },
+      { go: ['4,0', '3,0', '2,0', '2,1'] },
+      { untilOpen: 'door2' },
+      { go: ['2,2'] },
+    ],
+    // Eleven cells back from the pad to the door, and the light lasts nine.
+    solo: [
+      { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3', '5,3'] },
+      { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // and clicking again buys nothing: it starts the ninety over from here
+      { go: ['4,3', '3,3', '2,3', '1,3', '0,3', '0,2', '0,1', '0,0', '1,0', '2,0', '3,0'] },
+      { go: ['4,0', '5,0'] },
+      { click: 1 },
+      { go: ['4,0', '3,0', '2,0', '2,1'] },
+      { go: ['2,2'] },
+    ],
+  },
+
+  // Round 1 carries the key to the lock, then puts it down to press the button —
+  // pressing drops it, and by then the key has done its work. Round 2 walks out.
+  'let-go': {
+    setup: [
+      [
+        { go: ['0,0'] },
+        { click: 1 },
+        { go: ['0,1', '1,1', '2,1', '2,2'] },
+        { go: ['2,1', '3,1', '3,0'] },
+        { press: true },
+      ],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+    ],
+  },
+
+  // Round 1 takes the long way to the switch so that nobody has to stand on the
+  // button, then doubles back and joins the plate. Rounds 2 and 3 walk straight.
+  'either-way': {
+    setup: [
+      [
+        { go: ['0,2', '0,3', '1,3'] },
+        { click: 1 },
+        { go: ['0,3', '0,2', '0,1', '1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1', '3,0'] },
+      ],
+      [{ go: ['1,1'] }, { untilOpen: 'door1' }, { go: ['2,1', '3,1', '3,0'] }],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+    ],
+  },
+
+  // Two rounds stand on the plate. Only then is there a way through to the key.
+  'two-to-fetch': {
+    setup: [[{ go: ['1,1', '1,2', '2,2'] }], [{ go: ['1,1', '1,2', '2,2'] }]],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '3,2'] },
+      { click: 1 },
+      { go: ['3,1', '4,1', '4,0'] },
+      { untilOpen: 'door2' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // Round 1 flips the switch on its way past. Round 2 walks over the very same
+  // square and does NOT click — that is the level.
+  'only-one-of-you': {
+    setup: [
+      [{ go: ['1,1'] }, { click: 1 }, { go: ['2,1', '2,0'] }],
+      [{ go: ['1,1'] }, { untilOpen: 'door1' }, { go: ['2,1', '2,0'] }],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+    ],
+  },
+
+  // One click picks the key up and opens the door in the same tick. Round 1 runs
+  // the key to the lock and then joins the plate; rounds 2 and 3 follow.
+  'two-at-once': {
+    setup: [
+      [
+        { go: ['1,1', '1,0'] },
+        { click: 1 },
+        { go: ['1,1', '2,1'] },
+        { untilOpen: 'door1' },
+        { go: ['3,1', '3,0'] },
+        { go: ['3,1', '4,1', '4,2'] },
+      ],
+      [{ go: ['1,1', '2,1'] }, { untilOpen: 'door1' }, { go: ['3,1', '4,1', '4,2'] }],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1'] },
+      { untilOpen: 'door3' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // Round 1 walks the long arm and clicks the pad, empty-handed — it has to be,
+  // because a hand with a key in it cannot click. Round 2 picks the key up on
+  // its way and is at the door when that click comes round again.
+  'hands-full': {
+    setup: [
+      [{ go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] }, { click: 1 }],
+    ],
+    win: [
+      { go: ['0,1'] },
+      { click: 1 },
+      { go: ['0,2', '1,2', '2,2', '3,2'] },
+      { untilOpen: 'door1' },
+      { go: ['4,2', '5,2', '6,2', '6,3', '5,3', '4,3', '3,3'] },
+      { untilOpen: 'door2' },
+      { go: ['3,4'] },
+    ],
+    // Sixteen cells back from the pad to its door, and a second and a half of light.
+    solo: [
+      { go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] },
+      { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // clicking again only moves the ninety ticks along with you
+      { go: ['3,1', '4,1', '5,1', '6,1', '6,0', '5,0', '4,0', '3,0', '2,0', '1,0', '0,0'] },
+      { go: ['0,1', '0,2', '1,2', '2,2', '3,2'] },
+      { go: ['4,2'] },
+    ],
+  },
+
+  // Round 1 clicks the first pad. Round 2 waits at the first door, gets through,
+  // and clicks the second pad from inside. Round 3 waits at the second door.
+  chain: {
+    setup: [
+      [{ go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] }, { click: 1 }],
+      [
+        { go: ['1,0', '2,0'] },
+        { untilOpen: 'door1' },
+        { go: ['3,0', '4,0', '5,0', '6,0', '6,1'] },
+        { click: 1 },
+      ],
+    ],
+    win: [{ go: ['1,0', '1,1', '1,2'] }, { untilOpen: 'door2' }, { go: ['2,2'] }],
+    // Nine cells from the first pad back to its door, and one second of light.
+    solo: [
+      { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] },
+      { click: 1 },
+      { wait: 50 },
+      { click: 1 }, // clicking again only moves the sixty ticks along with you
+      { go: ['3,3', '2,3', '1,3', '0,3', '0,2', '0,1', '0,0', '1,0', '2,0'] },
+      { go: ['3,0'] },
+    ],
+  },
+
+  // Round 1 does the whole key run: first key to its lock, put it down, second
+  // key to its lock, then stand on the plate. Rounds 2 and 3 walk it.
+  'two-keys': {
+    setup: [
+      [
+        { go: ['1,0'] },
+        { click: 1 },
+        { go: ['1,1', '0,1'] },
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1'] },
+        { click: 1 }, // the first key goes on the floor — a hand holds one
+        { go: ['2,0'] },
+        { click: 1 },
+        { go: ['2,1', '2,2'] },
+        { go: ['2,1'] },
+        { untilOpen: 'door2' },
+        { go: ['3,1', '3,0'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['2,1'] },
+        { untilOpen: 'door2' },
+        { go: ['3,1', '3,0'] },
+      ],
+    ],
+    win: [
+      { untilOpen: 'door1' },
+      { go: ['2,1'] },
+      { untilOpen: 'door2' },
+      { go: ['3,1'] },
+      { untilOpen: 'door3' },
+      { go: ['4,1'] },
+    ],
+  },
+
+  // Round 1 walks out to the pad, clicks it, waits, and clicks it again. Round 2
+  // goes through the first door on the first click and is still walking when the
+  // second one starts the light over and opens the far door for it.
+  'keep-it-open': {
+    setup: [
+      [
+        { go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] },
+        { click: 1 },
+        { wait: 55 },
+        { click: 1 },
+      ],
+    ],
+    win: [
+      { go: ['1,0'] },
+      { untilOpen: 'doorA' },
+      { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+      { untilOpen: 'doorB' },
+      { go: ['5,2'] },
+    ],
+    // Eight cells back from the pad to the first door, and sixty ticks of light —
+    // and going back for another click only moves the sixty ticks along with you.
+    solo: [
+      { go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] },
+      { click: 1 },
+      { wait: 55 },
+      { click: 1 },
+      { go: ['2,4', '1,4', '0,4', '0,3', '0,2', '0,1', '0,0', '1,0'] },
+      { go: ['2,0'] },
+    ],
+  },
+
+  // Two on the plate, one on the button behind the plate's door, and the fourth
+  // goes in for the key and brings it all the way back to the lock by the spawn.
+  'hold-it-open': {
+    setup: [
+      [{ go: ['1,1', '1,0', '2,0'] }],
+      [{ go: ['1,1', '1,0', '2,0'] }],
+      [{ go: ['1,1', '2,1'] }, { untilOpen: 'door1' }, { go: ['3,1', '3,0'] }, { press: true }],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1', '5,0'] },
+      { click: 1 },
+      { go: ['5,1', '4,1', '3,1', '2,1', '1,1', '0,1', '0,2', '1,2'] },
+      { go: ['0,2'] },
+      { untilOpen: 'door3' },
+      { go: ['0,3'] },
+    ],
+  },
+
+  // Round 1 zig-zags out to the pad. Rounds 2 and 3 are each waiting at the
+  // door when that click comes round, and both end up on the plate.
+  'through-together': {
+    setup: [
+      [{ go: ['1,2', '1,1', '2,1', '2,0', '3,0', '4,0', '5,0', '5,1', '4,1'] }, { click: 1 }],
+      [
+        { go: ['0,3', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door1' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { go: ['0,3', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door1' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+    ],
+    win: [{ go: ['0,1', '0,0'] }, { untilOpen: 'door2' }, { go: ['1,0'] }],
+    // Thirteen cells back from the pad to the door it opens.
+    solo: [
+      { go: ['1,2', '1,1', '2,1', '2,0', '3,0', '4,0', '5,0', '5,1', '4,1'] },
+      { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // clicking again only moves the ninety ticks along with you
+      { go: ['5,1', '5,0', '4,0', '3,0', '2,0', '2,1', '1,1', '1,2', '0,2'] },
+      { go: ['0,3', '1,3', '2,3', '3,3'] },
+      { go: ['4,3'] },
+    ],
+  },
+
+  // North for the switch, then south to the plate — round 1 can just do both.
+  // Round 3 goes east and stays on the button; round 4 goes west and out.
+  crossroads: {
+    setup: [
+      [
+        { go: ['3,1', '3,0'] },
+        { click: 1 },
+        { go: ['3,1', '3,2'] },
+        { untilOpen: 'door1' },
+        { go: ['3,3', '3,4'] },
+      ],
+      [{ untilOpen: 'door1' }, { go: ['3,3', '3,4'] }],
+      [{ go: ['4,2', '5,2', '6,2'] }, { press: true }],
+    ],
+    win: [
+      { untilOpen: 'door2' },
+      { go: ['2,2', '1,2'] },
+      { untilOpen: 'door3' },
+      { go: ['0,2'] },
+    ],
+  },
+
+  // Three rounds cross the open floor and hold the middle. The fourth walks the
+  // length of the hall for the key, and the length of it again to the lock.
+  'the-hall': {
+    setup: [
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+    ],
+    win: [
+      { go: ['1,4', '2,4', '3,4', '4,4', '4,3', '4,2'] },
+      { untilOpen: 'door1' },
+      { go: ['5,2'] },
+      { click: 1 },
+      { go: ['4,2', '3,2', '2,2', '1,2', '0,2', '0,1', '0,0'] },
+      { go: ['1,0', '2,0', '3,0', '4,0'] },
+      { untilOpen: 'door2' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // One on the button for ever, one who runs the key and then joins the plate,
+  // two more on the plate, and the fifth of you walks the whole line.
+  'the-long-way': {
+    setup: [
+      [{ go: ['0,0'] }, { press: true }],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '2,0'] },
+        { click: 1 },
+        { go: ['2,1', '3,1', '3,2'] },
+        { go: ['3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1'] },
+      { untilOpen: 'door2' },
+      { go: ['4,1', '5,1'] },
+      { untilOpen: 'door3' },
+      { go: ['6,1'] },
+    ],
+  },
+
+  // Six of you, six jobs. Nobody does two of them and nobody is spare.
+  everyone: {
+    setup: [
+      [{ go: ['0,1'] }, { press: true }],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,1', '2,1', '3,1', '4,1', '5,1', '6,1', '6,0', '5,0', '4,0'] },
+        { click: 1 },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+    ],
+    win: [{ go: ['0,3', '0,4'] }, { untilOpen: 'door3' }, { go: ['1,4'] }],
+  },
+};
+
+/** Play a script to its win, and keep the room play showed on every tick of the last round. */
+function playScript(id: string, hardness: (typeof HARDNESS)[keyof typeof HARDNESS], rounds?: number): PlayedRun {
   const def = level(id);
+  const script = SCRIPTS[id];
   const run = new LevelRun(
     def.build(hardness.corridorWidth),
     clockTicksFor(hardness),
     roundLimitFor(def.minRounds, hardness),
   );
-  const statesByTick: RoomState[] = [];
-  const rec = (): void => {
-    statesByTick.push(run.roomState);
-  };
 
-  if (id === 'flip-it') {
-    // Down the pocket, flip the switch, and walk back out through the door it left open.
-    walk(run, ['1,0', '1,1', '2,1'], false, rec);
-    clickOnce(run, rec);
-    walk(run, ['1,1', '1,0', '2,0'], false, rec);
-  } else if (id === 'in-a-hurry') {
-    // Round 1 goes the long way to the pad and clicks it at the end of its walk.
-    walk(run, TO_THE_PAD);
-    clickOnce(run);
+  const setup = script.setup.slice(0, rounds ?? script.setup.length);
+  setup.forEach((steps, i) => {
+    expect(playSteps(run, steps)).toBe(true); // the round's clock was long enough for its job
+    expect(run.won).toBe(false);
+    expect(run.round).toBe(i + 1); // and it did not run out on its own
     run.endRound();
-    // Round 2 is already standing at the door when that click happens again.
-    walk(run, TO_THE_DOOR, false, rec);
-    waitFor(run, () => run.roomState.openDoors.has('door'), rec);
-    walk(run, ['3,3'], false, rec);
-  } else {
-    // Take the key, carry it to the lock, walk out.
-    walk(run, ['0,1'], false, rec);
-    clickOnce(run, rec);
-    walk(run, ['0,0', '1,0', '2,0', '2,1'], false, rec);
-    walk(run, ['2,0', '3,0'], false, rec);
-  }
+  });
+
+  const statesByTick: RoomState[] = [];
+  playSteps(run, script.win, () => statesByTick.push(run.roomState));
   return { run, statesByTick };
 }
 
-describe('Flip it, In a hurry, Carry it — the three newer things, played', () => {
-  for (const id of ['flip-it', 'in-a-hurry', 'carry-it']) {
+describe('the switch, timer and key levels — every one beatable in the rounds it claims', () => {
+  for (const id of Object.keys(SCRIPTS)) {
     const def = level(id);
+
+    it(`${id} claims ${def.minRounds} rounds, and its script uses exactly that many`, () => {
+      expect(SCRIPTS[id].setup.length + 1).toBe(def.minRounds);
+    });
 
     for (const hardness of Object.values(HARDNESS)) {
       it(`${hardness.id}: ${id} is won in round ${def.minRounds}`, () => {
-        const { run } = playNewLevel(id, hardness);
+        const { run } = playScript(id, hardness);
         expect(run.won).toBe(true);
         expect(run.round).toBe(def.minRounds);
         expect(run.round).toBeLessThanOrEqual(roundLimitFor(def.minRounds, hardness));
       });
     }
+  }
+});
 
-    it(`${id}: the victory replay shows the same room on every tick it did in play`, () => {
-      const { run, statesByTick } = playNewLevel(id, HARDNESS.medium);
+describe('the switch, timer and key levels — one round short is not enough', () => {
+  const hardness = HARDNESS.medium;
+
+  for (const id of Object.keys(SCRIPTS)) {
+    const def = level(id);
+    if (def.minRounds < 2) continue; // nothing to be one round short of
+
+    it(`${id} cannot be won in round ${def.minRounds - 1}`, () => {
+      const run = new LevelRun(
+        def.build(hardness.corridorWidth),
+        clockTicksFor(hardness),
+        roundLimitFor(def.minRounds, hardness),
+      );
+      for (const steps of SCRIPTS[id].setup.slice(0, -1)) {
+        playSteps(run, steps);
+        run.endRound();
+      }
+      expect(run.round).toBe(def.minRounds - 1);
+
+      playSteps(run, SCRIPTS[id].win);
+      expect(run.won).toBe(false);
+    });
+  }
+});
+
+describe('the timer levels — one self can never click the pad and use the door', () => {
+  // Played on easy: round 1 is 8 seconds there, far more than the walk takes,
+  // so the only thing that can stop it is the door shutting again.
+  const hardness = HARDNESS.easy;
+
+  for (const [id, script] of Object.entries(SCRIPTS)) {
+    if (!script.solo) continue;
+    const def = level(id);
+
+    it(`${id}: the door has shut again by the time the clicker gets there`, () => {
+      const run = new LevelRun(
+        def.build(hardness.corridorWidth),
+        clockTicksFor(hardness),
+        roundLimitFor(def.minRounds, hardness),
+      );
+      // The whole level, attempted alone. It has to get STUCK — not merely fail
+      // to win — or this proves nothing about the door.
+      expect(playSteps(run, script.solo!)).toBe(false);
+      expect(run.round).toBe(1); // the clock never ran out, so it was not the clock
+      expect(run.won).toBe(false);
+    });
+  }
+});
+
+describe('the switch, timer and key levels — the victory replay shows what play showed', () => {
+  for (const id of Object.keys(SCRIPTS)) {
+    it(`${id}: every tick of the winning round reads the same back`, () => {
+      const { run, statesByTick } = playScript(id, HARDNESS.medium);
       expect(run.won).toBe(true);
 
       const replay = replayOf(run);
+      expect(replay.recordings).toHaveLength(level(id).minRounds);
       expect(replay.winTick).toBe(run.currentRecording.length - 1);
       expectReplayMatches(replay, statesByTick);
 
-      // And the thing really did change state during the round, or the agreement
-      // above is the agreement of two rooms where nothing happened.
+      // And something really did change in the room, or the agreement above is
+      // the agreement of two rooms where nothing happened.
       const shots = statesByTick.map((s) => JSON.stringify(roomStateAsLists(s)));
       expect(new Set(shots).size).toBeGreaterThan(1);
-      expect(new Set(statesByTick.map((s) => [...s.openDoors].join())).size).toBe(2);
     });
   }
+});
 
+describe('the switch levels still punish a second click', () => {
   it('flip-it: a second self flipping the same switch shuts the door again', () => {
     const hardness = HARDNESS.medium;
     const def = level('flip-it');
@@ -575,15 +1143,27 @@ describe('Flip it, In a hurry, Carry it — the three newer things, played', () 
 
     // Two rounds that each go and flip it. Two clicks, back where it started.
     for (let i = 0; i < 2; i++) {
-      walk(run, ['1,0', '1,1', '2,1']);
-      clickOnce(run);
+      walk(run, ['1,1', '1,0', '2,0']);
+      run.tick({ dx: 0, dy: 0, down: true });
+      run.tick({ dx: 0, dy: 0, down: false });
       run.endRound();
     }
     expect(run.round).toBe(3);
 
-    walk(run, ['1,0', '1,1', '2,1']); // far enough in for both past clicks to have happened
+    walk(run, ['1,1', '1,0', '2,0']); // far enough in for both past clicks to have happened
     expect(run.roomState.switchesOn.has('flip')).toBe(false);
-    walk(run, ['1,1', '1,0', '2,0']);
+    walk(run, ['1,0', '1,1', '2,1']);
+    expect(run.won).toBe(false);
+  });
+
+  it('carry-it: without the key the lock stays shut and the way out is closed', () => {
+    const hardness = HARDNESS.medium;
+    const def = level('carry-it');
+    const run = new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), 3);
+
+    walk(run, ['1,1', '2,1', '2,2', '3,2']); // stand on the lock yourself — an arrow is not a key
+    expect(run.roomState.locksOpen.has('lock')).toBe(false);
+    walk(run, ['2,2', '2,1', '3,1']);
     expect(run.won).toBe(false);
   });
 
@@ -599,7 +1179,8 @@ describe('Flip it, In a hurry, Carry it — the three newer things, played', () 
     );
 
     walk(run, TO_THE_PAD);
-    clickOnce(run);
+    run.tick({ dx: 0, dy: 0, down: true });
+    run.tick({ dx: 0, dy: 0, down: false });
     expect(run.roomState.openDoors.has('door')).toBe(true); // it did open — just not for long enough
 
     // All the way back and round to the door, as fast as an arrow can go.
@@ -612,16 +1193,173 @@ describe('Flip it, In a hurry, Carry it — the three newer things, played', () 
     walk(run, ['3,3']);
     expect(run.won).toBe(false);
   });
+});
 
-  it('carry-it: without the key the lock stays shut and the way out is closed', () => {
-    const hardness = HARDNESS.medium;
-    const def = level('carry-it');
-    const run = new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), 3);
+// These are the rules the new levels are BUILT on. If any of them stopped
+// biting, the level above it would still be winnable — just not a puzzle.
+describe('the rules the new levels lean on really do bite', () => {
+  const hardness = HARDNESS.medium;
 
-    walk(run, ['1,0', '2,0', '2,1']); // stand on the lock yourself — an arrow is not a key
-    expect(run.roomState.locksOpen.has('lock')).toBe(false);
-    walk(run, ['2,0', '3,0']);
+  function fresh(id: string, roundLimit = 6): LevelRun {
+    const def = level(id);
+    return new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), roundLimit);
+  }
+
+  it('only-one-of-you: a second self clicking the switch shuts the door on the third', () => {
+    const run = fresh('only-one-of-you');
+
+    // Round 1 flips it and goes on to the plate, the right way round.
+    playSteps(run, [{ go: ['1,1'] }, { click: 1 }, { untilOpen: 'door1' }, { go: ['2,1', '2,0'] }]);
+    run.endRound();
+    // Round 2 cannot resist flipping it too — and shuts itself out.
+    playSteps(run, [{ go: ['1,1'] }, { wait: 30 }, { click: 1 }]);
+    run.endRound();
+    expect(run.round).toBe(3);
+
+    // Two clicks, so by the time both have happened the switch is back off.
+    playSteps(run, [{ go: ['1,1'] }, { wait: 60 }]);
+    expect(run.roomState.switchesOn.has('flip')).toBe(false);
+    expect(run.roomState.openDoors.has('door1')).toBe(false);
+    expect(playSteps(run, [{ go: ['2,1', '3,1', '4,1', '5,1'] }])).toBe(false);
     expect(run.won).toBe(false);
+  });
+
+  it('two-at-once: one click picks the key up AND flips the switch under it', () => {
+    const run = fresh('two-at-once');
+    playSteps(run, [{ go: ['1,1', '1,0'] }, { click: 1 }]);
+
+    const state = run.roomState;
+    expect(state.switchesOn.has('flip')).toBe(true);
+    expect(state.keys[0].carrier).toBe(0); // in the live self's hand
+    expect(state.openDoors.has('door1')).toBe(true);
+  });
+
+  it('two-keys: a hand holds one key, so clicking by the second one puts the first down', () => {
+    const run = fresh('two-keys');
+    playSteps(run, [
+      { go: ['1,0'] },
+      { click: 1 },
+      { go: ['1,1', '0,1'] },
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '2,0'] },
+      { click: 1 }, // standing right on top of key2, with key1 still in hand
+    ]);
+
+    const keys = Object.fromEntries(run.roomState.keys.map((k) => [k.id, k.carrier]));
+    expect(keys).toEqual({ key1: null, key2: null }); // it let go rather than taking both
+  });
+
+  it('hands-full: a self carrying the key cannot click the pad without dropping it', () => {
+    const run = fresh('hands-full');
+    playSteps(run, [
+      { go: ['0,1'] },
+      { click: 1 },
+      { go: ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] },
+    ]);
+    expect(run.roomState.keys[0].carrier).toBe(0);
+
+    playSteps(run, [{ click: 1 }]);
+    expect(run.roomState.keys[0].carrier).toBeNull(); // the pad click cost it the key
+    expect(run.roomState.timersLeft.get('pad')).toBeGreaterThan(0);
+  });
+
+  // A self parked on a pad can click it over and over, so a timer door can be
+  // held open for a whole round. Nothing in these levels may depend on somebody
+  // being SHUT IN — only on the walk from a pad to its door being too long,
+  // which no amount of clicking shortens.
+  it('chain: even with the first door held open all round, the second pad clicker cannot use it', () => {
+    const run = fresh('chain', 8);
+
+    // Round 1 parks on the first pad and clicks it again and again.
+    playSteps(run, [
+      { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] },
+      { click: 1 },
+      { wait: 50 },
+      { click: 1 },
+      { wait: 50 },
+      { click: 1 },
+    ]);
+    run.endRound();
+
+    // Round 2 goes in on that, clicks the second pad, and comes back out again —
+    // which it can, because the first door is being held. It still loses.
+    expect(
+      playSteps(run, [
+        { go: ['1,0', '2,0'] },
+        { untilOpen: 'door1' },
+        { go: ['3,0', '4,0', '5,0', '6,0', '6,1'] },
+        { click: 1 },
+        { go: ['6,0', '5,0', '4,0', '3,0'] },
+        { untilOpen: 'door1' },
+        { go: ['2,0', '1,0', '1,1', '1,2'] },
+      ]),
+    ).toBe(true);
+
+    // Eight cells from the second pad to the door it opens, and one second of
+    // light: it is standing at a shut door with nobody left to click for it.
+    expect(run.liveFrame).toMatchObject(cellCenter(1, 2));
+    expect(run.roomState.openDoors.has('door2')).toBe(false);
+    expect(playSteps(run, [{ go: ['2,2'] }])).toBe(false);
+    expect(run.won).toBe(false);
+  });
+
+  it('keep-it-open: one click gets you through the first door and shuts the second in your face', () => {
+    const run = fresh('keep-it-open');
+    playSteps(run, [{ go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] }, { click: 1 }]);
+    run.endRound();
+
+    // Through the first door on that one click, and all the way down the corridor.
+    expect(
+      playSteps(run, [
+        { go: ['1,0'] },
+        { untilOpen: 'doorA' },
+        { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+      ]),
+    ).toBe(true);
+
+    // It really did get to the far door — and found it shut, the light long gone.
+    expect(run.liveFrame).toMatchObject(cellCenter(6, 2));
+    expect(run.roomState.openDoors.has('doorB')).toBe(false);
+    expect(run.roomState.timersLeft.get('pad') ?? 0).toBe(0);
+    expect(playSteps(run, [{ go: ['5,2'] }])).toBe(false);
+    expect(run.won).toBe(false);
+  });
+
+  it('keep-it-open: a second click does not add time, it starts it again — which is enough', () => {
+    const run = fresh('keep-it-open');
+    for (const steps of SCRIPTS['keep-it-open'].setup) {
+      playSteps(run, steps);
+      run.endRound();
+    }
+    playSteps(run, [
+      { go: ['1,0'] },
+      { untilOpen: 'doorA' },
+      { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+    ]);
+    expect(run.roomState.openDoors.has('doorB')).toBe(true);
+  });
+
+  it('two-keys: the second lock will not take the first key', () => {
+    const run = fresh('two-keys');
+    playSteps(run, [
+      { go: ['1,0'] },
+      { click: 1 },
+      { go: ['1,1', '0,1'] },
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '2,2'] }, // key1, carried onto lock2
+    ]);
+    expect(run.roomState.locksOpen.has('lock1')).toBe(true);
+    expect(run.roomState.locksOpen.has('lock2')).toBe(false);
+  });
+});
+
+describe('every level is covered by a test', () => {
+  it('leaves no level without a script or a plan', () => {
+    const tutorial = ['hello', 'hold-the-door', 'relay'];
+    const covered = new Set([...tutorial, ...Object.keys(PLANS), ...Object.keys(SCRIPTS)]);
+    expect(LEVELS.filter((l) => !covered.has(l.id)).map((l) => l.id)).toEqual([]);
   });
 });
 

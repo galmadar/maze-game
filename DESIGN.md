@@ -119,41 +119,86 @@ Ending a round early rides on exactly that. A round you cut short at 2 seconds i
 weighing down its plate — for the rest of every later round. So cutting a round short
 costs you nothing except the time you didn't spend.
 
-## First levels (to teach one thing at a time)
+## The levels
 
 Levels 1-3 are one straight corridor: nothing to read but the doors. From 4 on the
 rooms are proper little mazes — corners, branches and dead ends — and the corridor
 width from the hardness table is how wide their passages are.
 
-1. **Hello** — a clear path to the exit. Just move. 1 round.
-2. **Hold the door** — a hold button, and a door behind it. 2 rounds.
-3. **Relay** — three doors in a row, each button behind the last door. 4 rounds.
-4. **Heavy** — a maze with a 2-arrow weight plate down a dead end. Two of you stand on
-   it, the third walks out. 3 rounds.
-5. **Hold and stand** — the plate is behind a held door, so the hold has to come first.
-   One holds, two stand, one walks out. 4 rounds.
-6. **Three of you** — same idea, one heavier: the plate wants three. 4 rounds.
-7. **Dead ends** — two plates, one behind the other, in a maze full of wrong turns.
-   5 rounds.
-8. **The crowd** — a 2-plate opens the way to a 3-plate. Everyone you have. 6 rounds.
-
 Each level's **minimum rounds** is the fewest it can actually be beaten in; the round
 limit adds the hardness table's spare rounds on top. Hard gives none, so on hard every
 round has to count.
 
-## Three more rooms, one per new thing
+**The rule for the whole list: each level has to ask something none of the others do.**
+Not another room with one of each thing in it — a question. Where two of them turned
+out to ask the same one, one of them was cut.
 
-These are not the levels that will teach the switch, the timer and the key — those are
-still to be designed. They are one small room each, enough to play the thing and see
-it work.
+### Learning to be a crowd (1-6)
 
-9. **Flip it** — a switch down a dead end, and a door to the way out. Flip it and
-   stroll out; nothing has to be held. 1 round.
-10. **In a hurry** — the timer pad is at the end of one long arm and its door at the
-    end of the other, far too far apart to do alone. Round 1 goes and clicks; round 2
-    is already at the door when that click happens again. 2 rounds.
-11. **Carry it** — a key in one pocket, a lock in another, and the door the lock opens
-    on the way out. 1 round.
+| # | Level | What it asks | Rounds |
+|---|---|---|---|
+| 1 | **Hello** | Just move. | 1 |
+| 2 | **Hold the door** | Somebody has to stay on the button. | 2 |
+| 3 | **Relay** | Three doors, each button behind the last one. | 4 |
+| 4 | **Heavy** | A plate for two: you cannot open it alone. | 3 |
+| 5 | **Dead ends** | Two plates, one behind the other, in a maze of wrong turns. | 5 |
+| 6 | **The crowd** | A 2-plate opens the way to a 3-plate. Everyone you have. | 6 |
+
+### One new thing each (7-9)
+
+| # | Level | What it asks | Rounds |
+|---|---|---|---|
+| 7 | **Flip it** | A switch stays flipped — unlike a button, nobody stays behind. | 1 |
+| 8 | **Carry it** | Take the key to the lock and the door is open for good. | 1 |
+| 9 | **In a hurry** | The pad is a room away from its door: the clicker is never the one who goes through. | 2 |
+
+### Crossing them (10-20)
+
+| # | Level | What it asks | Rounds |
+|---|---|---|---|
+| 10 | **Two jobs** | Flipping is free; holding costs a self. One round does both, in that order. | 2 |
+| 11 | **In and out** | In through the window, take the key, and back out before it shuts. | 2 |
+| 12 | **Hands full** | A hand with a key in it cannot click, so the carrier can never be the clicker. | 2 |
+| 13 | **Keep it open** | One pad, two doors a corridor apart. Clicking again restarts the light — go back and do it. | 2 |
+| 14 | **Let go** | Pressing a button IS a click, so it drops the key. Fine, once the lock is open. | 2 |
+| 15 | **Either way** | One door, a button and a switch. Spend a self, or walk six cells further. | 3 |
+| 16 | **Two to fetch** | The key is behind the crowd: two on the plate before anyone can reach it. | 3 |
+| 17 | **Only one of you** | The switch is in the corridor all three of you walk down. Exactly one may click it. | 3 |
+| 18 | **Two at once** | The key is lying on the switch. One click does both, and there is no doing one alone. | 3 |
+| 19 | **Chain** | Two timer doors, the second pad shut in behind the first. | 3 |
+| 20 | **Two keys** | A hand holds one key. Put the first down before you can pick the second up. | 3 |
+
+### Everything at once (21-26)
+
+| # | Level | What it asks | Rounds |
+|---|---|---|---|
+| 21 | **Through together** | Two of you have to catch the same window to fill one plate. | 4 |
+| 22 | **Crossroads** | Four arms, a different job down three of them. Which of you can afford which? | 4 |
+| 23 | **The hall** | No corridors at all — an open floor with pillars, and nothing telling you where to go. | 4 |
+| 24 | **Hold it open** | A plate, a button behind its door, and a key run for whoever is left. | 4 |
+| 25 | **The long way** | Button, key, lock, and a plate for three, in one line. Nobody spare. | 5 |
+| 26 | **Everyone** | Six of you, six jobs, not one of them the same. | 6 |
+
+### What a round count is allowed to rest on
+
+A level's minimum rounds has to be forced by the room, not by the clock — the clock is
+three times longer on easy than on hard, so anything resting on it is only true on hard.
+The things that really do cost a round:
+
+- a **hold button**, which costs the self that stands on it for ever;
+- a **plate**, which costs one self per arrow it needs;
+- a **timer pad** far enough from its door that the walk takes longer than the light
+  lasts — and note that clicking again only moves the light along with you, so no
+  amount of clicking shortens that walk;
+- a **key in a hand**, because that hand cannot click anything at all.
+
+A switch costs nothing: one self flips it and walks on. So a switch never adds a round
+by itself, only interest.
+
+**What a round count may NOT rest on: somebody being shut in behind a timer door.** A
+self parked on a pad can click it over and over, so a timer door can be held open for a
+whole round — and on easy that round is eight seconds long. Two levels were built on
+that mistake and had to be corrected.
 
 ## Hardness
 
