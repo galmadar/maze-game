@@ -220,35 +220,7 @@ const TWO_JOBS: MazeSpec = {
   ],
 };
 
-// 11. The key is in a cage, and the cage's door is a hold button's. One self
-// has to stand on that button for ever so a later one can go in, take the key
-// out and walk it the long way round to the lock.
-const FETCH: MazeSpec = {
-  cols: 5,
-  rows: 3,
-  spawn: '0,1',
-  exit: '4,0',
-  links: [
-    '0,1-1,1',
-    '1,1-1,2', // the button pocket
-    '1,1-2,1',
-    '2,1-2,2', // dead end
-    '3,1-3,0', // the cage, with the key in it
-    '3,1-3,2',
-    '3,2-4,2',
-    '4,2-4,1',
-    '0,1-0,0', // dead end
-  ],
-  buttons: [{ id: 'btn', at: '1,2' }],
-  keys: [{ id: 'key', at: '3,0' }],
-  locks: [{ id: 'lock', at: '4,2' }],
-  doors: [
-    { id: 'door1', at: '2,1-3,1', openedBy: ['btn'] },
-    { id: 'door2', at: '4,1-4,0', openedBy: ['lock'] },
-  ],
-};
-
-// 12. The key is behind a timer door, and the pad that opens it is eleven cells
+// 11. The key is behind a timer door, and the pad that opens it is eleven cells
 // away round the outside — nobody can click it and reach the door in the second
 // and a half it gives. So one self clicks, and the next is already standing at
 // the door: in, grab the key, and out again before it shuts.
@@ -433,14 +405,15 @@ const TWO_AT_ONCE: MazeSpec = {
   ],
 };
 
-// 18. A hand holding a key cannot click anything — a click is how you put it
-// down. So the self that carries the key can never be the self that works the
-// timer pad, and whoever does carry it through is shut in behind the door.
+// A hand holding a key cannot click anything — a click is how you put it down.
+// So the self that carries the key can never be the self that works the timer
+// pad: click it and the key is on the floor eleven cells from where it is
+// wanted. Somebody empty-handed has to make that walk.
 const HANDS_FULL: MazeSpec = {
   cols: 7,
   rows: 5,
   spawn: '0,0',
-  exit: '2,4',
+  exit: '3,4',
   links: [
     // the long way round to the pad
     '0,0-1,0',
@@ -460,24 +433,22 @@ const HANDS_FULL: MazeSpec = {
     '0,2-1,2',
     '1,2-2,2',
     '2,2-3,2',
-    // and the wing beyond it, too deep to get back out of
+    // and the wing beyond it, with the lock at the far end of it
     '4,2-5,2',
     '5,2-6,2',
     '6,2-6,3',
     '6,3-5,3',
     '5,3-4,3',
     '4,3-3,3',
-    // the way out, back on this side
-    '0,2-0,3',
-    '0,3-0,4',
-    '0,4-1,4',
+    '0,2-0,3', // dead end
+    '0,3-0,4', // dead end
   ],
   timers: [{ id: 'pad', at: '2,1', openTicks: 90 }],
   keys: [{ id: 'key', at: '0,1' }],
   locks: [{ id: 'lock', at: '3,3' }],
   doors: [
     { id: 'door1', at: '3,2-4,2', openedBy: ['pad'] },
-    { id: 'door2', at: '1,4-2,4', openedBy: ['lock'] },
+    { id: 'door2', at: '3,3-3,4', openedBy: ['lock'] },
   ],
 };
 
@@ -556,6 +527,272 @@ const TWO_KEYS: MazeSpec = {
     { id: 'door1', at: '1,1-2,1', openedBy: ['lock1'] },
     { id: 'door2', at: '2,1-3,1', openedBy: ['lock2'] },
     { id: 'door3', at: '3,1-4,1', openedBy: ['plate'] },
+  ],
+};
+
+// One pad, and two doors on it, a corridor apart. One click cannot keep them
+// both open long enough to walk from one to the other — and clicking again does
+// not ADD time, it starts the second over, which is exactly what is wanted: go
+// back and click it a second time, later, before the round is done.
+const KEEP_IT_OPEN: MazeSpec = {
+  cols: 8,
+  rows: 5,
+  spawn: '0,0',
+  exit: '5,2',
+  links: [
+    // the long way round to the pad
+    '0,0-0,1',
+    '0,1-0,2',
+    '0,2-0,3',
+    '0,3-0,4',
+    '0,4-1,4',
+    '1,4-2,4',
+    '2,4-3,4',
+    '3,4-4,4', // dead end
+    '4,4-5,4', // dead end
+    '5,4-6,4', // dead end
+    '3,4-3,3', // dead end
+    // the first door stands one cell from the spawn
+    '0,0-1,0',
+    '1,0-1,1', // dead end
+    // and eight cells of corridor between it and the second
+    '2,0-3,0',
+    '3,0-4,0',
+    '4,0-5,0',
+    '5,0-6,0',
+    '6,0-7,0',
+    '7,0-7,1',
+    '7,1-7,2',
+    '7,2-6,2',
+    '6,0-6,1', // dead end
+  ],
+  timers: [{ id: 'pad', at: '3,4', openTicks: 60 }],
+  doors: [
+    { id: 'doorA', at: '1,0-2,0', openedBy: ['pad'] },
+    { id: 'doorB', at: '6,2-5,2', openedBy: ['pad'] },
+  ],
+};
+
+// Two on a plate, one on a button behind the plate's door, and the fourth of
+// you finally free to do the long job: in for the key, and all the way back to
+// the lock by the spawn. Four of you, four different things to be doing.
+const HOLD_IT_OPEN: MazeSpec = {
+  cols: 7,
+  rows: 4,
+  spawn: '0,1',
+  exit: '0,3',
+  links: [
+    '0,1-1,1',
+    '1,1-1,0',
+    '1,0-2,0', // the plate
+    '1,1-2,1',
+    '2,1-2,2', // dead end
+    '3,1-3,0', // the button
+    '3,1-4,1',
+    '4,1-4,2', // dead end
+    '5,1-5,0', // the key
+    '5,1-6,1', // dead end
+    '0,1-0,2',
+    '0,2-1,2', // the lock
+  ],
+  plates: [{ id: 'plate', at: '2,0', needs: 2 }],
+  buttons: [{ id: 'btn', at: '3,0' }],
+  keys: [{ id: 'key', at: '5,0' }],
+  locks: [{ id: 'lock', at: '1,2' }],
+  doors: [
+    { id: 'door1', at: '2,1-3,1', openedBy: ['plate'] },
+    { id: 'door2', at: '4,1-5,1', openedBy: ['btn'] },
+    { id: 'door3', at: '0,2-0,3', openedBy: ['lock'] },
+  ],
+};
+
+// 22. A plate for two, shut in behind a timer door thirteen cells from its pad.
+// So one of you clicks and two more have to catch the same second and a half,
+// one in each of two later rounds, and a fourth walks out.
+const THROUGH_TOGETHER: MazeSpec = {
+  cols: 6,
+  rows: 5,
+  spawn: '0,2',
+  exit: '1,0',
+  links: [
+    // the zig-zag out to the pad
+    '0,2-1,2',
+    '1,2-1,1',
+    '1,1-2,1',
+    '2,1-2,0',
+    '2,0-3,0',
+    '3,0-4,0',
+    '4,0-5,0',
+    '5,0-5,1',
+    '5,1-4,1',
+    '2,1-3,1', // dead end
+    // the short way down to the door it opens
+    '0,2-0,3',
+    '0,3-1,3',
+    '1,3-2,3',
+    '2,3-3,3',
+    '0,3-0,4', // dead end
+    '3,3-3,4', // dead end
+    // the wing beyond it
+    '4,3-5,3',
+    '5,3-5,4',
+    '4,3-4,4', // dead end
+    // the way out, back on this side
+    '0,2-0,1',
+    '0,1-0,0',
+  ],
+  timers: [{ id: 'pad', at: '4,1', openTicks: 90 }],
+  plates: [{ id: 'plate', at: '5,4', needs: 2 }],
+  doors: [
+    { id: 'door1', at: '3,3-4,3', openedBy: ['pad'] },
+    { id: 'door2', at: '0,0-1,0', openedBy: ['plate'] },
+  ],
+};
+
+// 23. Four arms off one junction, and a different job at the end of three of
+// them. Nothing here is hard on its own; working out which of you can afford
+// which arm, with round 1 the shortest round you will ever have, is.
+const CROSSROADS: MazeSpec = {
+  cols: 7,
+  rows: 5,
+  spawn: '3,2',
+  exit: '0,2',
+  links: [
+    // north, to the switch
+    '3,2-3,1',
+    '3,1-3,0',
+    '3,0-2,0', // pocket
+    '3,0-4,0', // pocket
+    // south, behind the switch's door, to the plate
+    '3,3-3,4',
+    '3,4-2,4', // pocket
+    '3,4-4,4', // pocket
+    // east, to the button
+    '3,2-4,2',
+    '4,2-5,2',
+    '5,2-6,2',
+    '5,2-5,1', // pocket
+    '5,2-5,3', // pocket
+    // west, behind the button's door, to the way out
+    '2,2-1,2',
+    '1,2-1,1', // pocket
+    '1,2-1,3', // pocket
+  ],
+  switches: [{ id: 'flip', at: '3,0' }],
+  buttons: [{ id: 'btn', at: '6,2' }],
+  plates: [{ id: 'plate', at: '3,4', needs: 2 }],
+  doors: [
+    { id: 'door1', at: '3,2-3,3', openedBy: ['flip'] },
+    { id: 'door2', at: '3,2-2,2', openedBy: ['btn'] },
+    { id: 'door3', at: '1,2-0,2', openedBy: ['plate'] },
+  ],
+};
+
+/** Every cell joined to every neighbour: no corridors, just a floor with pillars. */
+function hallLinks(cols: number, rows: number): string[] {
+  const links: string[] = [];
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      if (c + 1 < cols) links.push(`${c},${r}-${c + 1},${r}`);
+      if (r + 1 < rows) links.push(`${c},${r}-${c},${r + 1}`);
+    }
+  }
+  return links;
+}
+
+// 24. No corridors at all — one open floor with pillars, which is a different
+// kind of hard: nothing tells you where to go. Three of you hold the middle
+// while the fourth crosses the whole room twice for the key.
+const THE_HALL: MazeSpec = {
+  cols: 6,
+  rows: 5,
+  spawn: '0,4',
+  exit: '5,0',
+  links: hallLinks(5, 5),
+  plates: [{ id: 'plate', at: '2,2', needs: 3 }],
+  keys: [{ id: 'key', at: '5,2' }],
+  locks: [{ id: 'lock', at: '0,0' }],
+  doors: [
+    { id: 'door1', at: '4,2-5,2', openedBy: ['plate'] },
+    { id: 'door2', at: '4,0-5,0', openedBy: ['lock'] },
+  ],
+};
+
+// 25. Everything at once and in a line: a button somebody holds for ever, a key
+// through the door it opens, a lock, and a plate that wants three of you behind
+// that. Five rounds and nobody spare.
+const THE_LONG_WAY: MazeSpec = {
+  cols: 7,
+  rows: 4,
+  spawn: '0,1',
+  exit: '6,1',
+  links: [
+    '0,1-0,0', // the button
+    '0,1-0,2', // dead end
+    '0,1-1,1',
+    '1,1-1,2', // dead end
+    '2,1-2,0', // the key
+    '2,1-3,1',
+    '3,1-3,2', // the lock
+    '3,1-3,0', // dead end
+    '4,1-4,0', // the plate
+    '4,1-5,1',
+    '5,1-5,2', // dead end
+  ],
+  buttons: [{ id: 'btn', at: '0,0' }],
+  keys: [{ id: 'key', at: '2,0' }],
+  locks: [{ id: 'lock', at: '3,2' }],
+  plates: [{ id: 'plate', at: '4,0', needs: 3 }],
+  doors: [
+    { id: 'door1', at: '1,1-2,1', openedBy: ['btn'] },
+    { id: 'door2', at: '3,1-4,1', openedBy: ['lock'] },
+    { id: 'door3', at: '5,1-6,1', openedBy: ['plate'] },
+  ],
+};
+
+// 26. All six of you, each with one job and none of them the same: one holds the
+// button that opens the room at all, one runs the long arm to the pad, three
+// catch the second it buys and stand on the plate behind the door, and the last
+// walks out of a door on this side that the three of them opened.
+const EVERYONE: MazeSpec = {
+  cols: 7,
+  rows: 5,
+  spawn: '0,2',
+  exit: '1,4',
+  links: [
+    '0,2-0,1', // the button
+    '0,1-0,0', // dead end
+    // beyond the button's door, the long arm to the pad
+    '1,2-1,1',
+    '1,1-2,1',
+    '2,1-3,1',
+    '3,1-4,1',
+    '4,1-5,1',
+    '5,1-6,1',
+    '6,1-6,0',
+    '6,0-5,0',
+    '5,0-4,0',
+    '3,1-3,0', // dead end
+    // and the way down to the timer door
+    '1,2-1,3',
+    '1,3-2,3',
+    '2,3-3,3',
+    '2,3-2,4', // dead end
+    // the wing beyond it
+    '4,3-5,3',
+    '5,3-5,4',
+    '5,3-6,3', // dead end
+    // the way out, on this side
+    '0,2-0,3',
+    '0,3-0,4',
+  ],
+  buttons: [{ id: 'btn', at: '0,1' }],
+  timers: [{ id: 'pad', at: '4,0', openTicks: 60 }],
+  plates: [{ id: 'plate', at: '5,4', needs: 3 }],
+  doors: [
+    { id: 'door1', at: '0,2-1,2', openedBy: ['btn'] },
+    { id: 'door2', at: '3,3-4,3', openedBy: ['pad'] },
+    { id: 'door3', at: '0,4-1,4', openedBy: ['plate'] },
   ],
 };
 
@@ -659,20 +896,29 @@ export const LEVELS: LevelDef[] = [
     build: (cw) => mazeRoom(cw, TWO_JOBS),
   },
   {
-    // The button holding the cage shut has to be held by somebody, so it can
-    // never be the self that carries the key out of it.
-    id: 'fetch',
-    name: 'Fetch',
-    minRounds: 2,
-    build: (cw) => mazeRoom(cw, FETCH),
-  },
-  {
     // Eleven cells from the pad to the door it opens, and only ninety ticks of
     // light — so the clicker is never the one who goes in.
     id: 'in-and-out',
     name: 'In and out',
     minRounds: 2,
     build: (cw) => mazeRoom(cw, IN_AND_OUT),
+  },
+  {
+    // A hand with a key in it cannot click, so the pad and the key have to be
+    // two different selves — and sixteen cells apart, the clicker can never be
+    // the one who walks through.
+    id: 'hands-full',
+    name: 'Hands full',
+    minRounds: 2,
+    build: (cw) => mazeRoom(cw, HANDS_FULL),
+  },
+  {
+    // One click buys sixty ticks and the corridor between the two doors takes
+    // eighty. Go back and click it again, later — it starts over, never stacks.
+    id: 'keep-it-open',
+    name: 'Keep it open',
+    minRounds: 2,
+    build: (cw) => mazeRoom(cw, KEEP_IT_OPEN),
   },
   {
     // The key opens the first door, then the hand that carried it is needed on
@@ -714,14 +960,6 @@ export const LEVELS: LevelDef[] = [
     build: (cw) => mazeRoom(cw, TWO_AT_ONCE),
   },
   {
-    // One self clicks the pad, a second carries the key through and is shut in
-    // behind the door, and a third walks out of the door the lock opened.
-    id: 'hands-full',
-    name: 'Hands full',
-    minRounds: 3,
-    build: (cw) => mazeRoom(cw, HANDS_FULL),
-  },
-  {
     // Three rounds, three jobs: click the first pad, get through and click the
     // second, and be standing at the second door when that click comes round.
     id: 'chain',
@@ -736,5 +974,53 @@ export const LEVELS: LevelDef[] = [
     name: 'Two keys',
     minRounds: 3,
     build: (cw) => mazeRoom(cw, TWO_KEYS),
+  },
+  {
+    // One clicker, two who catch the window and stand on the plate behind the
+    // door, and a fourth who walks out on this side.
+    id: 'through-together',
+    name: 'Through together',
+    minRounds: 4,
+    build: (cw) => mazeRoom(cw, THROUGH_TOGETHER),
+  },
+  {
+    // Two on the plate, one on the button, one out of the door — and the switch
+    // is free, so round 1 can flip it and still get to the plate in time.
+    id: 'crossroads',
+    name: 'Crossroads',
+    minRounds: 4,
+    build: (cw) => mazeRoom(cw, CROSSROADS),
+  },
+  {
+    // Three of you on the plate in the middle; the fourth crosses the hall for
+    // the key and crosses it again to the lock.
+    id: 'the-hall',
+    name: 'The hall',
+    minRounds: 4,
+    build: (cw) => mazeRoom(cw, THE_HALL),
+  },
+  {
+    // Two on the plate, one on the button behind it, and the fourth walks the
+    // length of the room for the key and the length of it back to the lock.
+    id: 'hold-it-open',
+    name: 'Hold it open',
+    minRounds: 4,
+    build: (cw) => mazeRoom(cw, HOLD_IT_OPEN),
+  },
+  {
+    // A button held, a key run, and a plate for three: five jobs and five of
+    // you, with the key fitted into the same round as the first plate stander.
+    id: 'the-long-way',
+    name: 'The long way',
+    minRounds: 5,
+    build: (cw) => mazeRoom(cw, THE_LONG_WAY),
+  },
+  {
+    // A button, a pad, three on a plate and one walking out: six rounds, and not
+    // one of them can be spent on anything else.
+    id: 'everyone',
+    name: 'Everyone',
+    minRounds: 6,
+    build: (cw) => mazeRoom(cw, EVERYONE),
   },
 ];

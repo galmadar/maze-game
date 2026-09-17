@@ -615,22 +615,6 @@ const SCRIPTS: Record<string, Script> = {
     ],
   },
 
-  // Round 1 stands on the button that holds the cage open. Round 2 goes in for
-  // the key and takes it the long way round to the lock.
-  fetch: {
-    setup: [[{ go: ['1,1', '1,2'] }, { press: true }]],
-    win: [
-      { go: ['1,1', '2,1'] },
-      { untilOpen: 'door1' },
-      { go: ['3,1', '3,0'] },
-      { click: 1 },
-      { go: ['3,1', '3,2', '4,2'] },
-      { go: ['4,1'] },
-      { untilOpen: 'door2' },
-      { go: ['4,0'] },
-    ],
-  },
-
   // Round 1 walks all the way round to the pad and clicks. Round 2 is waiting at
   // the door: in, key, and out again inside the second and a half.
   'in-and-out': {
@@ -648,6 +632,8 @@ const SCRIPTS: Record<string, Script> = {
     solo: [
       { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3', '5,3'] },
       { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // and clicking again buys nothing: it starts the ninety over from here
       { go: ['4,3', '3,3', '2,3', '1,3', '0,3', '0,2', '0,1', '0,0', '1,0', '2,0', '3,0'] },
       { go: ['4,0', '5,0'] },
       { click: 1 },
@@ -755,24 +741,27 @@ const SCRIPTS: Record<string, Script> = {
   },
 
   // Round 1 walks the long arm and clicks the pad, empty-handed — it has to be,
-  // because a hand with a key in it cannot click. Round 2 carries the key
-  // through and cannot get back out. Round 3 leaves by the door the lock opened.
+  // because a hand with a key in it cannot click. Round 2 picks the key up on
+  // its way and is at the door when that click comes round again.
   'hands-full': {
     setup: [
       [{ go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] }, { click: 1 }],
-      [
-        { go: ['0,1'] },
-        { click: 1 },
-        { go: ['0,2', '1,2', '2,2', '3,2'] },
-        { untilOpen: 'door1' },
-        { go: ['4,2', '5,2', '6,2', '6,3', '5,3', '4,3', '3,3'] },
-      ],
     ],
-    win: [{ go: ['0,1', '0,2', '0,3', '0,4', '1,4'] }, { untilOpen: 'door2' }, { go: ['2,4'] }],
+    win: [
+      { go: ['0,1'] },
+      { click: 1 },
+      { go: ['0,2', '1,2', '2,2', '3,2'] },
+      { untilOpen: 'door1' },
+      { go: ['4,2', '5,2', '6,2', '6,3', '5,3', '4,3', '3,3'] },
+      { untilOpen: 'door2' },
+      { go: ['3,4'] },
+    ],
     // Sixteen cells back from the pad to its door, and a second and a half of light.
     solo: [
       { go: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '6,1', '5,1', '4,1', '3,1', '2,1'] },
       { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // clicking again only moves the ninety ticks along with you
       { go: ['3,1', '4,1', '5,1', '6,1', '6,0', '5,0', '4,0', '3,0', '2,0', '1,0', '0,0'] },
       { go: ['0,1', '0,2', '1,2', '2,2', '3,2'] },
       { go: ['4,2'] },
@@ -796,6 +785,8 @@ const SCRIPTS: Record<string, Script> = {
     solo: [
       { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] },
       { click: 1 },
+      { wait: 50 },
+      { click: 1 }, // clicking again only moves the sixty ticks along with you
       { go: ['3,3', '2,3', '1,3', '0,3', '0,2', '0,1', '0,0', '1,0', '2,0'] },
       { go: ['3,0'] },
     ],
@@ -835,6 +826,202 @@ const SCRIPTS: Record<string, Script> = {
       { untilOpen: 'door3' },
       { go: ['4,1'] },
     ],
+  },
+
+  // Round 1 walks out to the pad, clicks it, waits, and clicks it again. Round 2
+  // goes through the first door on the first click and is still walking when the
+  // second one starts the light over and opens the far door for it.
+  'keep-it-open': {
+    setup: [
+      [
+        { go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] },
+        { click: 1 },
+        { wait: 55 },
+        { click: 1 },
+      ],
+    ],
+    win: [
+      { go: ['1,0'] },
+      { untilOpen: 'doorA' },
+      { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+      { untilOpen: 'doorB' },
+      { go: ['5,2'] },
+    ],
+    // Eight cells back from the pad to the first door, and sixty ticks of light —
+    // and going back for another click only moves the sixty ticks along with you.
+    solo: [
+      { go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] },
+      { click: 1 },
+      { wait: 55 },
+      { click: 1 },
+      { go: ['2,4', '1,4', '0,4', '0,3', '0,2', '0,1', '0,0', '1,0'] },
+      { go: ['2,0'] },
+    ],
+  },
+
+  // Two on the plate, one on the button behind the plate's door, and the fourth
+  // goes in for the key and brings it all the way back to the lock by the spawn.
+  'hold-it-open': {
+    setup: [
+      [{ go: ['1,1', '1,0', '2,0'] }],
+      [{ go: ['1,1', '1,0', '2,0'] }],
+      [{ go: ['1,1', '2,1'] }, { untilOpen: 'door1' }, { go: ['3,1', '3,0'] }, { press: true }],
+    ],
+    win: [
+      { go: ['1,1', '2,1'] },
+      { untilOpen: 'door1' },
+      { go: ['3,1', '4,1'] },
+      { untilOpen: 'door2' },
+      { go: ['5,1', '5,0'] },
+      { click: 1 },
+      { go: ['5,1', '4,1', '3,1', '2,1', '1,1', '0,1', '0,2', '1,2'] },
+      { go: ['0,2'] },
+      { untilOpen: 'door3' },
+      { go: ['0,3'] },
+    ],
+  },
+
+  // Round 1 zig-zags out to the pad. Rounds 2 and 3 are each waiting at the
+  // door when that click comes round, and both end up on the plate.
+  'through-together': {
+    setup: [
+      [{ go: ['1,2', '1,1', '2,1', '2,0', '3,0', '4,0', '5,0', '5,1', '4,1'] }, { click: 1 }],
+      [
+        { go: ['0,3', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door1' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { go: ['0,3', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door1' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+    ],
+    win: [{ go: ['0,1', '0,0'] }, { untilOpen: 'door2' }, { go: ['1,0'] }],
+    // Thirteen cells back from the pad to the door it opens.
+    solo: [
+      { go: ['1,2', '1,1', '2,1', '2,0', '3,0', '4,0', '5,0', '5,1', '4,1'] },
+      { click: 1 },
+      { wait: 80 },
+      { click: 1 }, // clicking again only moves the ninety ticks along with you
+      { go: ['5,1', '5,0', '4,0', '3,0', '2,0', '2,1', '1,1', '1,2', '0,2'] },
+      { go: ['0,3', '1,3', '2,3', '3,3'] },
+      { go: ['4,3'] },
+    ],
+  },
+
+  // North for the switch, then south to the plate — round 1 can just do both.
+  // Round 3 goes east and stays on the button; round 4 goes west and out.
+  crossroads: {
+    setup: [
+      [
+        { go: ['3,1', '3,0'] },
+        { click: 1 },
+        { go: ['3,1', '3,2'] },
+        { untilOpen: 'door1' },
+        { go: ['3,3', '3,4'] },
+      ],
+      [{ untilOpen: 'door1' }, { go: ['3,3', '3,4'] }],
+      [{ go: ['4,2', '5,2', '6,2'] }, { press: true }],
+    ],
+    win: [
+      { untilOpen: 'door2' },
+      { go: ['2,2', '1,2'] },
+      { untilOpen: 'door3' },
+      { go: ['0,2'] },
+    ],
+  },
+
+  // Three rounds cross the open floor and hold the middle. The fourth walks the
+  // length of the hall for the key, and the length of it again to the lock.
+  'the-hall': {
+    setup: [
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+      [{ go: ['1,4', '2,4', '2,3', '2,2'] }],
+    ],
+    win: [
+      { go: ['1,4', '2,4', '3,4', '4,4', '4,3', '4,2'] },
+      { untilOpen: 'door1' },
+      { go: ['5,2'] },
+      { click: 1 },
+      { go: ['4,2', '3,2', '2,2', '1,2', '0,2', '0,1', '0,0'] },
+      { go: ['1,0', '2,0', '3,0', '4,0'] },
+      { untilOpen: 'door2' },
+      { go: ['5,0'] },
+    ],
+  },
+
+  // One on the button for ever, one who runs the key and then joins the plate,
+  // two more on the plate, and the fifth of you walks the whole line.
+  'the-long-way': {
+    setup: [
+      [{ go: ['0,0'] }, { press: true }],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '2,0'] },
+        { click: 1 },
+        { go: ['2,1', '3,1', '3,2'] },
+        { go: ['3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+      [
+        { go: ['1,1'] },
+        { untilOpen: 'door1' },
+        { go: ['2,1', '3,1'] },
+        { untilOpen: 'door2' },
+        { go: ['4,1', '4,0'] },
+      ],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { untilOpen: 'door1' },
+      { go: ['2,1', '3,1'] },
+      { untilOpen: 'door2' },
+      { go: ['4,1', '5,1'] },
+      { untilOpen: 'door3' },
+      { go: ['6,1'] },
+    ],
+  },
+
+  // Six of you, six jobs. Nobody does two of them and nobody is spare.
+  everyone: {
+    setup: [
+      [{ go: ['0,1'] }, { press: true }],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,1', '2,1', '3,1', '4,1', '5,1', '6,1', '6,0', '5,0', '4,0'] },
+        { click: 1 },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+      [
+        { untilOpen: 'door1' },
+        { go: ['1,2', '1,3', '2,3', '3,3'] },
+        { untilOpen: 'door2' },
+        { go: ['4,3', '5,3', '5,4'] },
+      ],
+    ],
+    win: [{ go: ['0,3', '0,4'] }, { untilOpen: 'door3' }, { go: ['1,4'] }],
   },
 };
 
@@ -1075,6 +1262,82 @@ describe('the rules the new levels lean on really do bite', () => {
     playSteps(run, [{ click: 1 }]);
     expect(run.roomState.keys[0].carrier).toBeNull(); // the pad click cost it the key
     expect(run.roomState.timersLeft.get('pad')).toBeGreaterThan(0);
+  });
+
+  // A self parked on a pad can click it over and over, so a timer door can be
+  // held open for a whole round. Nothing in these levels may depend on somebody
+  // being SHUT IN — only on the walk from a pad to its door being too long,
+  // which no amount of clicking shortens.
+  it('chain: even with the first door held open all round, the second pad clicker cannot use it', () => {
+    const run = fresh('chain', 8);
+
+    // Round 1 parks on the first pad and clicks it again and again.
+    playSteps(run, [
+      { go: ['0,1', '0,2', '0,3', '1,3', '2,3', '3,3', '4,3'] },
+      { click: 1 },
+      { wait: 50 },
+      { click: 1 },
+      { wait: 50 },
+      { click: 1 },
+    ]);
+    run.endRound();
+
+    // Round 2 goes in on that, clicks the second pad, and comes back out again —
+    // which it can, because the first door is being held. It still loses.
+    expect(
+      playSteps(run, [
+        { go: ['1,0', '2,0'] },
+        { untilOpen: 'door1' },
+        { go: ['3,0', '4,0', '5,0', '6,0', '6,1'] },
+        { click: 1 },
+        { go: ['6,0', '5,0', '4,0', '3,0'] },
+        { untilOpen: 'door1' },
+        { go: ['2,0', '1,0', '1,1', '1,2'] },
+      ]),
+    ).toBe(true);
+
+    // Eight cells from the second pad to the door it opens, and one second of
+    // light: it is standing at a shut door with nobody left to click for it.
+    expect(run.liveFrame).toMatchObject(cellCenter(1, 2));
+    expect(run.roomState.openDoors.has('door2')).toBe(false);
+    expect(playSteps(run, [{ go: ['2,2'] }])).toBe(false);
+    expect(run.won).toBe(false);
+  });
+
+  it('keep-it-open: one click gets you through the first door and shuts the second in your face', () => {
+    const run = fresh('keep-it-open');
+    playSteps(run, [{ go: ['0,1', '0,2', '0,3', '0,4', '1,4', '2,4', '3,4'] }, { click: 1 }]);
+    run.endRound();
+
+    // Through the first door on that one click, and all the way down the corridor.
+    expect(
+      playSteps(run, [
+        { go: ['1,0'] },
+        { untilOpen: 'doorA' },
+        { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+      ]),
+    ).toBe(true);
+
+    // It really did get to the far door — and found it shut, the light long gone.
+    expect(run.liveFrame).toMatchObject(cellCenter(6, 2));
+    expect(run.roomState.openDoors.has('doorB')).toBe(false);
+    expect(run.roomState.timersLeft.get('pad') ?? 0).toBe(0);
+    expect(playSteps(run, [{ go: ['5,2'] }])).toBe(false);
+    expect(run.won).toBe(false);
+  });
+
+  it('keep-it-open: a second click does not add time, it starts it again — which is enough', () => {
+    const run = fresh('keep-it-open');
+    for (const steps of SCRIPTS['keep-it-open'].setup) {
+      playSteps(run, steps);
+      run.endRound();
+    }
+    playSteps(run, [
+      { go: ['1,0'] },
+      { untilOpen: 'doorA' },
+      { go: ['2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '7,1', '7,2', '6,2'] },
+    ]);
+    expect(run.roomState.openDoors.has('doorB')).toBe(true);
   });
 
   it('two-keys: the second lock will not take the first key', () => {
