@@ -1,6 +1,7 @@
 import { clockTicksFor, HARDNESS, roundLimitFor, type Hardness } from './content/hardness';
 import { LEVELS } from './content/levels';
 import type { RoomDef } from './content/types';
+import { roomMovePerTick } from './input/MouseSpeed';
 import { isTouchDevice, PointerInput } from './input/PointerInput';
 import { Renderer, type DrawArrow } from './render/Renderer';
 import { LevelRun, type TickReport } from './sim/LevelRun';
@@ -399,11 +400,12 @@ function runLevel(
 
     if (paced.ticks > 0 && input.isLocked()) {
       const raw = input.consumeTick();
-      // Mouse movement is screen pixels; the room is drawn scaled up to fill the window.
+      // Mouse movement is screen pixels; the room is drawn scaled to fill the window.
       // One reading spreads over a NORMAL frame's ticks, so a tick of input means
       // the same thing whether or not the player is hurrying.
-      const dx = raw.dx / paced.baseTicks / renderer.scale;
-      const dy = raw.dy / paced.baseTicks / renderer.scale;
+      const move = roomMovePerTick(raw.dx / paced.baseTicks, raw.dy / paced.baseTicks, renderer.scale);
+      const dx = move.x;
+      const dy = move.y;
       for (let i = 0; i < paced.ticks; i++) {
         if (endRoundAsked) {
           endRoundAsked = false;
