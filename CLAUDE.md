@@ -18,9 +18,11 @@ See `DESIGN.md`. Each round replays every earlier round as a past self.
 Pointer lock: the game draws and owns the arrow, so walls block.
 
 `src/sim/` and `src/content/` must never import the DOM or the renderer.
-`npm test` checks imports from `src/render/`, `src/input/` and `src/audio/`, and
-uses of `document.`, `window.` and `navigator.`; package imports and other
-`src/` files aren't checked.
+`npm test` checks it: those two folders may only import each other — no
+packages (except `vitest` in a `*.test.ts`), no Node builtins, no other `src/`
+folder — and outside tests, no `document.`, `window.` or `navigator.`. It reads
+`import`, `import()` and `require()` as text rather than parsing them, so it is
+a guard rail, not a proof.
 
 # Shipping
 
