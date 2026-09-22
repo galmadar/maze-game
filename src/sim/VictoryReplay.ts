@@ -76,7 +76,7 @@ export class VictoryReplay {
    */
   get roomState(): RoomState {
     const tick = this.tickIndex - 1;
-    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick));
+    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick), tick);
   }
 
   get won(): boolean {

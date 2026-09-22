@@ -1,5 +1,6 @@
 import type { RoomDef } from '../content/types';
 import { moveWithCollision } from './Collision';
+import { hitsLitLaser, litLasers } from './Lasers';
 import { initialLatches, type KeyState, type LatchState } from './Latches';
 import { pastSelfFrameAt } from './PastSelf';
 import type { Frame, Rect, TickInput, Vec2 } from './types';
@@ -20,6 +21,7 @@ export interface RoomState {
   keys: KeyState[];
   locksOpen: Set<string>;
   openDoors: Set<string>;
+  lasersLit: Set<string>;
 }
 
 /**
@@ -35,6 +37,8 @@ export function roomStateFor(
   room: RoomDef,
   states: Frame[],
   latch: LatchState = initialLatches(room),
+  /** Only the lasers need it: they blink by the clock, not by who is standing where. */
+  tick = 0,
 ): RoomState {
   const heldButtons = new Set<string>();
   for (const b of room.buttons) {
@@ -66,6 +70,7 @@ export function roomStateFor(
     keys: latch.keys,
     locksOpen: latch.locksOpen,
     openDoors,
+    lasersLit: litLasers(room, tick),
   };
 }
 
@@ -88,6 +93,8 @@ export interface TickResult {
   liveFrame: Frame;
   doorsOpen: Set<string>;
   won: boolean;
+  /** A lit laser caught the live arrow this tick and sent it back to the start. */
+  zapped: boolean;
 }
 
 /**
@@ -118,11 +125,14 @@ export function stepTick(
   const doorsOpen = openDoorsFor(room, [...prevReplays, prevLive], latch);
   const walls = activeWalls(room, doorsOpen);
 
-  const pos = moveWithCollision(prevLive, input.dx, input.dy, walls);
+  const moved = moveWithCollision(prevLive, input.dx, input.dy, walls);
+  // Only the live arrow is burned: a past self's recording already has its own zaps in it.
+  const zapped = hitsLitLaser(room, tickIndex, prevLive, moved);
+  const pos = zapped ? spawn : moved;
   const liveFrame: Frame = { x: pos.x, y: pos.y, down: input.down };
 
   const replayCurrent = replays.map((r) => pastSelfFrameAt(r, tickIndex, spawnFrame));
   const won = reachedExit(room, [...replayCurrent, liveFrame]);
 
-  return { liveFrame, doorsOpen, won };
+  return { liveFrame, doorsOpen, won, zapped };
 }

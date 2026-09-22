@@ -52,6 +52,21 @@ export interface LockDef {
   keyIds?: string[];
 }
 
+/**
+ * A laser beam across a passage. It blinks on a fixed rhythm; touch it while lit
+ * and you are sent back to the start. Nothing turns it off.
+ */
+export interface LaserDef {
+  id: string;
+  rect: Rect;
+  onTicks: number;
+  offTicks: number;
+  /** Ticks to shift the rhythm by, so two beams can take turns. */
+  phase?: number;
+  /** As for a door: which way through it the beam lies across. Only the drawing cares. */
+  blocks?: 'x' | 'y';
+}
+
 export interface DoorDef {
   id: string;
   rect: Rect;
@@ -87,6 +102,7 @@ export interface RoomDef {
   timers?: TimerDef[];
   keys?: KeyDef[];
   locks?: LockDef[];
+  lasers?: LaserDef[];
 }
 
 export interface LevelDef {
