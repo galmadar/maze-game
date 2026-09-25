@@ -193,6 +193,35 @@ const IN_A_HURRY: MazeSpec = {
   doors: [{ id: 'door', at: '4,3-3,3', openedBy: ['pad'] }],
 };
 
+// Two blinking lasers across the one corridor, taking turns: the moment the
+// first goes dark the second lights, so you have to stop between them. Touch a lit
+// one and you're back at the start. The button behind them makes it two rounds,
+// so you watch your past self dodge the same beams beside you.
+const LASERS: MazeSpec = {
+  cols: 6,
+  rows: 3,
+  spawn: '0,1',
+  exit: '5,1',
+  links: [
+    '0,1-1,1',
+    '1,1-2,1', // beam A
+    '2,1-3,1',
+    '3,1-4,1', // beam B
+    '4,1-4,0', // the button pocket
+    '0,1-0,2', // dead end
+    '1,1-1,0', // dead end
+    '2,1-2,2',
+    '2,2-3,2', // dead end
+    '3,1-3,0', // dead end
+  ],
+  lasers: [
+    { id: 'beamA', at: '1,1-2,1', onTicks: 45, offTicks: 45 },
+    { id: 'beamB', at: '3,1-4,1', onTicks: 45, offTicks: 45, phase: 45 },
+  ],
+  buttons: [{ id: 'btn', at: '4,0' }],
+  doors: [{ id: 'door', at: '4,1-5,1', openedBy: ['btn'] }],
+};
+
 // 10. The switch buys you past the first door — and finds a hold button behind
 // it. One self does both jobs, in that order, and then has to stand there; the
 // second self walks the whole way out. Flipping is free, holding costs a self.
@@ -886,6 +915,14 @@ export const LEVELS: LevelDef[] = [
     name: 'In a hurry',
     minRounds: 2,
     build: (cw) => mazeRoom(cw, IN_A_HURRY),
+  },
+  {
+    // Round 1 slips past both beams and holds the button; round 2 slips past
+    // them too and walks out. The beams only ever cost time, never a round.
+    id: 'lasers',
+    name: 'Lasers',
+    minRounds: 2,
+    build: (cw) => mazeRoom(cw, LASERS),
   },
   {
     // Round 1 flips the switch and then has to stay on the button behind it.

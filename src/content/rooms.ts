@@ -6,6 +6,7 @@ import type {
   ButtonDef,
   DoorDef,
   KeyDef,
+  LaserDef,
   LockDef,
   PlateDef,
   RoomDef,
@@ -115,6 +116,15 @@ export interface MazeLockSpec {
   keyIds?: string[];
 }
 
+export interface MazeLaserSpec {
+  id: string;
+  /** The open passage the beam crosses. It must also be listed in `links`. */
+  at: LinkRef;
+  onTicks: number;
+  offTicks: number;
+  phase?: number;
+}
+
 export interface MazeSpec {
   cols: number;
   rows: number;
@@ -129,6 +139,7 @@ export interface MazeSpec {
   timers?: MazeTimerSpec[];
   keys?: MazeKeySpec[];
   locks?: MazeLockSpec[];
+  lasers?: MazeLaserSpec[];
 }
 
 type Cell = [number, number];
@@ -251,6 +262,25 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
     ...(l.keyIds === undefined ? {} : { keyIds: l.keyIds }),
   }));
 
+  // A thin beam down the middle of the passage's gap, spanning its floor.
+  const lasers: LaserDef[] = (spec.lasers ?? []).map((l) => {
+    const [a, b] = parseLink(l.at);
+    if (!passages.has(linkKeyOf(a, b))) throw new Error(`maze: laser ${l.id} is not in an open passage`);
+    const g = gapRect(a, b);
+    const across = a[1] === b[1];
+    const beam = 6;
+    return {
+      id: l.id,
+      rect: across
+        ? { x: g.x + g.w / 2 - beam / 2, y: g.y, w: beam, h: g.h }
+        : { x: g.x, y: g.y + g.h / 2 - beam / 2, w: g.w, h: beam },
+      onTicks: l.onTicks,
+      offTicks: l.offTicks,
+      ...(l.phase === undefined ? {} : { phase: l.phase }),
+      blocks: across ? 'x' : 'y',
+    };
+  });
+
   const plateIdSet = new Set(plates.map((p) => p.id));
   const buttonIdSet = new Set(buttons.map((b) => b.id));
   const switchIdSet = new Set(switches.map((s) => s.id));
@@ -359,5 +389,6 @@ export function mazeRoom(corridorWidth: number, spec: MazeSpec): RoomDef {
     timers,
     keys,
     locks,
+    lasers,
   };
 }

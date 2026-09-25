@@ -143,6 +143,7 @@ export class Renderer {
     this.drawTimers(room, state, px, amp);
     this.drawButtons(room, state, px, amp);
     this.drawDoors(room, state, px, amp, step);
+    this.drawLasers(room, state, px, amp, step);
     // Keys last of the room's things: one is carried about, so it belongs on top
     // of the floor it is being carried over.
     this.drawKeys(room, state, arrows, px, amp);
@@ -574,6 +575,51 @@ export class Renderer {
         ctx.strokeStyle = PAPER.wood;
         ctx.lineWidth = 7 * px;
         wobblyLine(ctx, a.x, a.y, b.x, b.y, seed, amp, step);
+      }
+    }
+  }
+
+  // A laser: a little emitter on each wall and the beam between them. Lit, it is
+  // a bright red line with a glow; dark, just a faint dashed trace of where it runs.
+  private drawLasers(room: RoomDef, state: RoomState, px: number, amp: number, step: number): void {
+    const ctx = this.ctx;
+    for (const l of room.lasers ?? []) {
+      const lit = state.lasersLit.has(l.id);
+      const seed = seedOf(l.rect.x, l.rect.y, l.rect.w, l.rect.h, 29);
+      const acrossX = (l.blocks ?? 'x') === 'x';
+      const mx = l.rect.x + l.rect.w / 2;
+      const my = l.rect.y + l.rect.h / 2;
+      const a = acrossX ? { x: mx, y: l.rect.y } : { x: l.rect.x, y: my };
+      const b = acrossX ? { x: mx, y: l.rect.y + l.rect.h } : { x: l.rect.x + l.rect.w, y: my };
+
+      if (lit) {
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = PAPER.red;
+        ctx.lineWidth = 16 * px;
+        wobblyLine(ctx, a.x, a.y, b.x, b.y, seed, amp, step);
+        ctx.restore();
+        ctx.strokeStyle = PAPER.red;
+        ctx.lineWidth = 4.5 * px;
+        wobblyLine(ctx, a.x, a.y, b.x, b.y, seed + 3, amp, step);
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.setLineDash([3 * px, 8 * px]);
+        ctx.strokeStyle = PAPER.faint;
+        ctx.lineWidth = 2 * px;
+        wobblyLine(ctx, a.x, a.y, b.x, b.y, seed, amp, step);
+        ctx.restore();
+      }
+
+      const box = 14;
+      for (const [i, end] of [a, b].entries()) {
+        ctx.fillStyle = lit ? PAPER.red : PAPER.pencil;
+        ctx.strokeStyle = PAPER.inkDeep;
+        ctx.lineWidth = 2 * px;
+        wobblyRectPath(ctx, end.x - box / 2, end.y - box / 2, box, box, seed + 7 + i, amp, step);
+        ctx.fill();
+        ctx.stroke();
       }
     }
   }

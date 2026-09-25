@@ -6,6 +6,7 @@ import { ARROW_RADIUS } from '../sim/Collision';
 import { activeWalls, type RoomState } from '../sim/Simulation';
 import type { Vec2 } from '../sim/types';
 import { VictoryReplay } from '../sim/VictoryReplay';
+import { laserLit } from '../sim/Lasers';
 import { cellCenter } from './rooms';
 import type { RoomDef } from './types';
 
@@ -24,6 +25,10 @@ function holdUntilRoundEnds(run: LevelRun, down: boolean) {
   let last = { won: false, ranOutOfRounds: false, roundOver: false };
   while (!last.roundOver && !run.won) last = run.tick({ dx: 0, dy: 0, down });
   return last;
+}
+
+function litAt(room: RoomDef, id: string, tick: number): boolean {
+  return laserLit(room.lasers!.find((l) => l.id === id)!, tick);
 }
 
 function level(id: string) {
@@ -284,6 +289,7 @@ function roomStateAsLists(state: RoomState): Record<string, unknown> {
     keys: state.keys.map((k) => [k.id, k.x, k.y, k.carrier]),
     locksOpen: [...state.locksOpen].sort(),
     openDoors: [...state.openDoors].sort(),
+    lasersLit: [...state.lasersLit].sort(),
   };
 }
 
@@ -482,7 +488,9 @@ type Step =
   /** Stand still until that door is open. */
   | { untilOpen: string }
   /** Stand still for this many ticks. */
-  | { wait: number };
+  | { wait: number }
+  /** Stand still until that laser lights and then goes dark: a whole dark spell to cross in. */
+  | { nextDark: string };
 
 interface Script {
   setup: Step[][];
@@ -556,6 +564,13 @@ function playSteps(run: LevelRun, steps: Step[], onTick?: () => void): boolean {
         else if (!tick(down)) return false;
       }
       if (!open) return false;
+    } else if ('nextDark' in step) {
+      for (const wantLit of [true, false]) {
+        let guard = 0;
+        while (run.roomState.lasersLit.has(step.nextDark) !== wantLit) {
+          if (++guard > 2000 || !tick(down)) return false;
+        }
+      }
     } else {
       for (let i = 0; i < step.wait; i++) if (!tick(down)) return false;
     }
@@ -591,6 +606,30 @@ const SCRIPTS: Record<string, Script> = {
   'in-a-hurry': {
     setup: [[{ go: TO_THE_PAD }, { click: 1 }]],
     win: [{ go: TO_THE_DOOR }, { untilOpen: 'door' }, { go: ['3,3'] }],
+  },
+
+  // Round 1 waits out each beam, slips past it while it's dark, and holds the
+  // button. Round 2 does the same dance and walks out through the held door.
+  lasers: {
+    setup: [
+      [
+        { go: ['1,1'] },
+        { nextDark: 'beamA' },
+        { go: ['2,1', '3,1'] },
+        { nextDark: 'beamB' },
+        { go: ['4,1', '4,0'] },
+        { press: true },
+      ],
+    ],
+    win: [
+      { go: ['1,1'] },
+      { nextDark: 'beamA' },
+      { go: ['2,1', '3,1'] },
+      { nextDark: 'beamB' },
+      { go: ['4,1'] },
+      { untilOpen: 'door' },
+      { go: ['5,1'] },
+    ],
   },
 
   // Round 1 flips the switch, goes through the door it opened, and stays on the
@@ -1204,6 +1243,22 @@ describe('the rules the new levels lean on really do bite', () => {
     const def = level(id);
     return new LevelRun(def.build(hardness.corridorWidth), clockTicksFor(hardness), roundLimit);
   }
+
+  it('lasers: walking straight into a lit beam sends you back to the start', () => {
+    const run = fresh('lasers');
+    // Beam A is lit from tick 0, so a straight walk at it gets burned.
+    let zapped = false;
+    for (let i = 0; i < 40 && !zapped; i++) zapped = run.tick({ dx: 22, dy: 0, down: false }).zapped ?? false;
+    expect(zapped).toBe(true);
+    expect(run.liveFrame).toMatchObject(run.room.spawn);
+  });
+
+  it('lasers: the two beams take turns, so nobody runs past both in one go', () => {
+    const room = fresh('lasers').room;
+    for (let t = 0; t < 90; t++) {
+      expect(litAt(room, 'beamA', t) || litAt(room, 'beamB', t)).toBe(true);
+    }
+  });
 
   it('only-one-of-you: a second self clicking the switch shuts the door on the third', () => {
     const run = fresh('only-one-of-you');

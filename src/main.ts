@@ -418,6 +418,7 @@ function runLevel(
         const requestedMove = Math.hypot(dx, dy);
         const secondsLeft = (run.clockTicks - run.tickIndex) * TICK_SECONDS;
         handleTickAudio(secondsLeft, requestedMove, actualMove, report.frame.down);
+        if (report.zapped) audio.playZap();
         if (handleRoundOver(report)) return;
       }
     }

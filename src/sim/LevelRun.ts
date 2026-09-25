@@ -8,6 +8,8 @@ export interface TickReport {
   won: boolean;
   ranOutOfRounds: boolean;
   roundOver: boolean;
+  /** A laser sent the live arrow back to the start this tick. */
+  zapped?: boolean;
   // The live frame produced by this tick, captured before any round-rollover reset.
   frame: Frame;
 }
@@ -72,7 +74,7 @@ export class LevelRun {
    */
   get roomState(): RoomState {
     const tick = this.tickIndex - 1;
-    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick));
+    return roomStateFor(this.room, this.framesAt(tick), this.latches.at(tick), tick);
   }
 
   /** Where each past self is standing right now, frozen ones included. */
@@ -122,7 +124,7 @@ export class LevelRun {
       return { won: false, ranOutOfRounds: false, roundOver: false, frame: this.liveFrame };
     }
 
-    const { liveFrame, won } = stepTick(
+    const { liveFrame, won, zapped } = stepTick(
       this.room,
       this.liveFrame,
       this.replays,
@@ -148,7 +150,7 @@ export class LevelRun {
       return this.closeRound(liveFrame);
     }
 
-    return { won: false, ranOutOfRounds: false, roundOver: false, frame: liveFrame };
+    return { won: false, ranOutOfRounds: false, roundOver: false, frame: liveFrame, zapped };
   }
 
   /**

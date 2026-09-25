@@ -75,6 +75,10 @@ export function playWallBump(): void {
   tone(120, 0.06, { type: 'square', gain: 0.15 });
 }
 
+export function playZap(): void {
+  tone(1400, 0.22, { type: 'sawtooth', sweepTo: 180, gain: 0.14 });
+}
+
 export function playRoundEndWhoosh(): void {
   tone(600, 0.4, { type: 'sine', sweepTo: 80, gain: 0.18 });
 }

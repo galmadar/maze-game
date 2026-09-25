@@ -53,6 +53,7 @@ set up, and long enough to go wrong.
 | **Timer door** | yes | A pad with a ring of time on it. A click opens its door for a few seconds and then lets it shut. Clicking again starts the few seconds over, it never adds up. |
 | **Key** | yes | A key lying on the floor. Click to pick it up, click again to put it down. It goes wherever its carrier goes. |
 | **Lock** | yes | A keyhole on the floor. A key touching it opens its door, and that door stays open for good. |
+| **Laser** | yes | A beam across a passage that blinks on and off on its own clock. Touch it while it is lit and you are back at the start. Nothing turns it off. |
 | **Pressure plate** | not yet | Open while some arrow rests on it. No click needed. |
 | **Crusher** | not yet | Closes on any arrow under it. That arrow is out for the rest of the round. |
 
@@ -144,40 +145,41 @@ out to ask the same one, one of them was cut.
 | 5 | **Dead ends** | Two plates, one behind the other, in a maze of wrong turns. | 5 |
 | 6 | **The crowd** | A 2-plate opens the way to a 3-plate. Everyone you have. | 6 |
 
-### One new thing each (7-9)
+### One new thing each (7-10)
 
 | # | Level | What it asks | Rounds |
 |---|---|---|---|
 | 7 | **Flip it** | A switch stays flipped — unlike a button, nobody stays behind. | 1 |
 | 8 | **Carry it** | Take the key to the lock and the door is open for good. | 1 |
 | 9 | **In a hurry** | The pad is a room away from its door: the clicker is never the one who goes through. | 2 |
+| 10 | **Lasers** | Two beams take turns blinking. Wait between them, cross while dark, or start again. | 2 |
 
-### Crossing them (10-20)
-
-| # | Level | What it asks | Rounds |
-|---|---|---|---|
-| 10 | **Two jobs** | Flipping is free; holding costs a self. One round does both, in that order. | 2 |
-| 11 | **In and out** | In through the window, take the key, and back out before it shuts. | 2 |
-| 12 | **Hands full** | A hand with a key in it cannot click, so the carrier can never be the clicker. | 2 |
-| 13 | **Keep it open** | One pad, two doors a corridor apart. Clicking again restarts the light — go back and do it. | 2 |
-| 14 | **Let go** | Pressing a button IS a click, so it drops the key. Fine, once the lock is open. | 2 |
-| 15 | **Either way** | One door, a button and a switch. Spend a self, or walk six cells further. | 3 |
-| 16 | **Two to fetch** | The key is behind the crowd: two on the plate before anyone can reach it. | 3 |
-| 17 | **Only one of you** | The switch is in the corridor all three of you walk down. Exactly one may click it. | 3 |
-| 18 | **Two at once** | The key is lying on the switch. One click does both, and there is no doing one alone. | 3 |
-| 19 | **Chain** | Two timer doors, the second pad shut in behind the first. | 3 |
-| 20 | **Two keys** | A hand holds one key. Put the first down before you can pick the second up. | 3 |
-
-### Everything at once (21-26)
+### Crossing them (11-21)
 
 | # | Level | What it asks | Rounds |
 |---|---|---|---|
-| 21 | **Through together** | Two of you have to catch the same window to fill one plate. | 4 |
-| 22 | **Crossroads** | Four arms, a different job down three of them. Which of you can afford which? | 4 |
-| 23 | **The hall** | No corridors at all — an open floor with pillars, and nothing telling you where to go. | 4 |
-| 24 | **Hold it open** | A plate, a button behind its door, and a key run for whoever is left. | 4 |
-| 25 | **The long way** | Button, key, lock, and a plate for three, in one line. Nobody spare. | 5 |
-| 26 | **Everyone** | Six of you, six jobs, not one of them the same. | 6 |
+| 11 | **Two jobs** | Flipping is free; holding costs a self. One round does both, in that order. | 2 |
+| 12 | **In and out** | In through the window, take the key, and back out before it shuts. | 2 |
+| 13 | **Hands full** | A hand with a key in it cannot click, so the carrier can never be the clicker. | 2 |
+| 14 | **Keep it open** | One pad, two doors a corridor apart. Clicking again restarts the light — go back and do it. | 2 |
+| 15 | **Let go** | Pressing a button IS a click, so it drops the key. Fine, once the lock is open. | 2 |
+| 16 | **Either way** | One door, a button and a switch. Spend a self, or walk six cells further. | 3 |
+| 17 | **Two to fetch** | The key is behind the crowd: two on the plate before anyone can reach it. | 3 |
+| 18 | **Only one of you** | The switch is in the corridor all three of you walk down. Exactly one may click it. | 3 |
+| 19 | **Two at once** | The key is lying on the switch. One click does both, and there is no doing one alone. | 3 |
+| 20 | **Chain** | Two timer doors, the second pad shut in behind the first. | 3 |
+| 21 | **Two keys** | A hand holds one key. Put the first down before you can pick the second up. | 3 |
+
+### Everything at once (22-27)
+
+| # | Level | What it asks | Rounds |
+|---|---|---|---|
+| 22 | **Through together** | Two of you have to catch the same window to fill one plate. | 4 |
+| 23 | **Crossroads** | Four arms, a different job down three of them. Which of you can afford which? | 4 |
+| 24 | **The hall** | No corridors at all — an open floor with pillars, and nothing telling you where to go. | 4 |
+| 25 | **Hold it open** | A plate, a button behind its door, and a key run for whoever is left. | 4 |
+| 26 | **The long way** | Button, key, lock, and a plate for three, in one line. Nobody spare. | 5 |
+| 27 | **Everyone** | Six of you, six jobs, not one of them the same. | 6 |
 
 ### What a round count is allowed to rest on
 
@@ -193,12 +195,19 @@ The things that really do cost a round:
 - a **key in a hand**, because that hand cannot click anything at all.
 
 A switch costs nothing: one self flips it and walks on. So a switch never adds a round
-by itself, only interest.
+by itself, only interest. Nor does a laser: it only ever costs time.
 
 **What a round count may NOT rest on: somebody being shut in behind a timer door.** A
 self parked on a pad can click it over and over, so a timer door can be held open for a
 whole round — and on easy that round is eight seconds long. Two levels were built on
 that mistake and had to be corrected.
+
+### The laser: timing, not the crowd
+
+A laser blinks by the round's clock, from tick 0, and nothing else — so it is lit on the
+same ticks in every round and in the replay. Only the arrow you are steering can be
+burned. A past self does what it did, zaps included, because its recording already
+has them in it.
 
 ## Hardness
 
